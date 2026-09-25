@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { User } from '../entities/User.entity';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
@@ -10,10 +11,14 @@ import { MailModule } from '../mail/mail.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([User]),
-    JwtModule.register({
-      global: true, // Make JwtModule available everywhere
-      secret: process.env.JWT_SECRET || 'sportsman_secret_key_2026',
-      signOptions: { expiresIn: '7d' },
+    JwtModule.registerAsync({
+      global: true,
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET') || 'sportsman_secret_key_2026',
+        signOptions: { expiresIn: '7d' },
+      }),
     }),
     MailModule,
   ],

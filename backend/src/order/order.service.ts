@@ -6,6 +6,7 @@ import { OrderItem } from '../entities/OrderItem.entity';
 import { Product } from '../entities/Product.entity';
 import { Coupon } from '../entities/Coupon.entity';
 import { ProductService } from '../product/product.service';
+import { SmsService } from '../sms/sms.service';
 
 @Injectable()
 export class OrderService {
@@ -18,6 +19,7 @@ export class OrderService {
     private readonly couponRepository: Repository<Coupon>,
     private readonly dataSource: DataSource,
     private readonly productService: ProductService,
+    private readonly smsService: SmsService,
   ) {}
 
   async findAll() {
@@ -254,6 +256,46 @@ export class OrderService {
       await this.productService.evictCache();
     }
 
+    // Trigger real-time SMS notification to customer phone number
+    if (result && result.phone) {
+      this.smsService.sendSms(
+        result.phone,
+        `Sportsman.ke: Your order #${result.id.substring(0, 8)} status is now "${newStatus}". Track at: https://sportsman.ke/receipts`
+      ).catch(() => {});
+    }
+
     return result;
   }
+
+  async getAnalytics() {
+    const orders = await this.orderRepository.find({ relations: ['items'] });
+    const products = await this.productRepository.find();
+
+    const totalOrders = orders.length;
+    const totalRevenue = orders
+      .filter(o => o.status !== 'Cancelled')
+      .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+
+    const statusCounts = orders.reduce((acc: Record<string, number>, o) => {
+      acc[o.status] = (acc[o.status] || 0) + 1;
+      return acc;
+    }, {});
+
+    const lowStockProducts = products.filter(p => p.stockQuantity <= p.reorderThreshold);
+
+    return {
+      totalOrders,
+      totalRevenue,
+      statusCounts,
+      totalProducts: products.length,
+      lowStockCount: lowStockProducts.length,
+      lowStockProducts: lowStockProducts.map(p => ({
+        id: p.id,
+        name: p.name,
+        stockQuantity: p.stockQuantity,
+        reorderThreshold: p.reorderThreshold,
+      })),
+    };
+  }
 }
+

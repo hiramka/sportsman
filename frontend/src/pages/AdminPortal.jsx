@@ -1,4 +1,4 @@
-import React, { useState, useContext, useMemo } from 'react';
+import React, { useState, useContext, useMemo, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -16,7 +16,11 @@ import {
   Activity,
   CheckCircle2,
   PlusCircle,
-  Users
+  Users,
+  Mail,
+  MessageSquare,
+  Inbox,
+  Eye
 } from 'lucide-react';
 
 export default function AdminPortal() {
@@ -39,10 +43,61 @@ export default function AdminPortal() {
   const { user: currentUser } = useAuth();
 
   // Search & view filters
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'products' | 'orders' | 'coupons' | 'users'
+  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'products' | 'orders' | 'coupons' | 'users' | 'messages'
   const [productSearch, setProductSearch] = useState('');
   const [orderSearch, setOrderSearch] = useState('');
   const [userSearch, setUserSearch] = useState('');
+  const [messageSearch, setMessageSearch] = useState('');
+
+  // Contact Messages State (Saved in Supabase DB)
+  const [contactMessages, setContactMessages] = useState([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+
+  const fetchContactMessages = async () => {
+    setLoadingMessages(true);
+    try {
+      const res = await fetch(`${API_BASE}/contact`);
+      if (res.ok) {
+        const data = await res.json();
+        setContactMessages(data);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch contact messages:', err);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchContactMessages();
+  }, []);
+
+  const handleUpdateMessageStatus = async (id, status) => {
+    try {
+      const res = await fetch(`${API_BASE}/contact/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      if (res.ok) {
+        setContactMessages(prev => prev.map(m => m.id === id ? { ...m, status } : m));
+      }
+    } catch (err) {
+      console.error('Failed to update message status:', err);
+    }
+  };
+
+  const handleDeleteMessage = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this contact message?')) return;
+    try {
+      const res = await fetch(`${API_BASE}/contact/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setContactMessages(prev => prev.filter(m => m.id !== id));
+      }
+    } catch (err) {
+      console.error('Failed to delete message:', err);
+    }
+  };
 
   // Form states - User Add/Edit
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);

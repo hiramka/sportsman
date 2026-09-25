@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Product } from '../entities/Product.entity';
+import { Review } from '../entities/Review.entity';
 import { ProductService } from './product.service';
 import { ProductController } from './product.controller';
 import { AuthModule } from '../auth/auth.module';
@@ -8,7 +9,7 @@ import { SupabaseModule } from '../supabase/supabase.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Product]),
+    TypeOrmModule.forFeature([Product, Review]),
     AuthModule, // Include auth token guards support
     SupabaseModule,
   ],

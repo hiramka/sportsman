@@ -4,6 +4,7 @@ import { Order } from '../entities/Order.entity';
 import { OrderModule } from '../order/order.module';
 import { MpesaService } from './mpesa.service';
 import { MpesaController } from './mpesa.controller';
+import { MpesaIpGuard } from './mpesa-ip.guard';
 
 @Module({
   imports: [
@@ -11,7 +12,7 @@ import { MpesaController } from './mpesa.controller';
     OrderModule, // Connects order service workflows
   ],
   controllers: [MpesaController],
-  providers: [MpesaService],
+  providers: [MpesaService, MpesaIpGuard],
   exports: [MpesaService],
 })
 export class MpesaModule {}

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, OnModuleDestroy } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from '../entities/Product.entity';
+import { Review } from '../entities/Review.entity';
 import Redis from 'ioredis';
 
 @Injectable()
@@ -14,6 +15,8 @@ export class ProductService implements OnModuleDestroy {
   constructor(
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(Review)
+    private readonly reviewRepository: Repository<Review>,
   ) {
     this.initializeRedis();
   }
@@ -181,5 +184,41 @@ export class ProductService implements OnModuleDestroy {
     await this.productRepository.remove(product);
     await this.evictCache(); // Invalidate cache index
     return { success: true, message: `Product "${product.name}" removed.` };
+  }
+
+  // Fetch all reviews for a product with rating statistics
+  async getReviews(productId: string) {
+    const reviews = await this.reviewRepository.find({
+      where: { productId },
+      order: { createdAt: 'DESC' },
+    });
+
+    const total = reviews.length;
+    const averageRating = total > 0
+      ? Number((reviews.reduce((sum, r) => sum + r.rating, 0) / total).toFixed(1))
+      : 5.0;
+
+    return {
+      reviews,
+      totalReviews: total,
+      averageRating,
+    };
+  }
+
+  // Create a new product review
+  async addReview(productId: string, dto: { userName: string; userEmail?: string; rating: number; comment: string }) {
+    await this.findById(productId); // Ensure product exists
+
+    const review = this.reviewRepository.create({
+      id: `rev-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      productId,
+      userName: dto.userName || 'Anonymous Fan',
+      userEmail: dto.userEmail || null,
+      rating: Math.min(5, Math.max(1, Number(dto.rating) || 5)),
+      comment: dto.comment,
+      createdAt: new Date().toISOString(),
+    });
+
+    return await this.reviewRepository.save(review);
   }
 }

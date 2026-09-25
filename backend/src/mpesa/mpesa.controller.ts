@@ -1,5 +1,7 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Query, Req, UseGuards } from '@nestjs/common';
+import { Request } from 'express';
 import { MpesaService } from './mpesa.service';
+import { MpesaIpGuard } from './mpesa-ip.guard';
 
 @Controller('mpesa')
 export class MpesaController {
@@ -12,10 +14,17 @@ export class MpesaController {
     return this.mpesaService.triggerStkPush(body.orderId, body.phone);
   }
 
-  // Safaricom Daraja callback endpoint (Must be public, no authentication guards!)
+  // Safaricom Daraja callback endpoint (Secured with Safaricom IP Whitelist Guard)
   @Post('callback')
+  @UseGuards(MpesaIpGuard)
   @HttpCode(HttpStatus.OK)
-  async handleCallback(@Body() body: any) {
-    return this.mpesaService.handleCallback(body);
+  async handleCallback(
+    @Body() body: any,
+    @Query('secret') secretQuery?: string,
+    @Req() req?: Request,
+  ) {
+    const clientIp = (req?.headers['x-forwarded-for'] as string) || req?.socket?.remoteAddress || '';
+    const secretHeader = req?.headers['x-mpesa-secret'] as string;
+    return this.mpesaService.handleCallback(body, secretQuery || secretHeader, clientIp);
   }
 }

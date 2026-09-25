@@ -36,8 +36,9 @@ export class SupabaseService implements OnModuleInit {
     filename: string,
     mimeType: string,
   ): Promise<string> {
+    const bucketName = this.configService.get<string>('SUPABASE_STORAGE_BUCKET') || 'product-images';
+
     if (this.isConfigured && this.supabase) {
-      const bucketName = 'product-images';
       this.logger.log(`Uploading ${filename} to Supabase Storage bucket "${bucketName}"...`);
 
       const { data, error } = await this.supabase.storage
@@ -48,8 +49,12 @@ export class SupabaseService implements OnModuleInit {
         });
 
       if (error) {
-        this.logger.error(`Supabase upload failed: ${error.message}`);
-        // Fall back to local storage instead of throwing an error
+        this.logger.error(`Supabase upload failed to bucket "${bucketName}": ${error.message}`);
+        const isProd = this.configService.get<string>('NODE_ENV') === 'production';
+        if (isProd) {
+          throw new Error(`Supabase Object Storage Upload Error: ${error.message}`);
+        }
+        // Fall back to local storage in non-production environments
         this.logger.warn('Falling back to local storage for this upload.');
         return this.saveLocally(fileBuffer, filename);
       }

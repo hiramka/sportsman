@@ -8,6 +8,9 @@ import { join } from 'path';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // Enable graceful shutdown hooks for container lifecycle SIGTERM/SIGINT signals
+  app.enableShutdownHooks();
+
   // Serve static assets (such as uploaded product images)
   app.useStaticAssets(join(__dirname, '..', 'public'), {
     prefix: '/public/',

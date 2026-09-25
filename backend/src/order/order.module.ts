@@ -8,12 +8,14 @@ import { OrderService } from './order.service';
 import { OrderController } from './order.controller';
 import { AuthModule } from '../auth/auth.module';
 import { ProductModule } from '../product/product.module';
+import { SmsModule } from '../sms/sms.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Order, OrderItem, Product, Coupon]),
     AuthModule, // Include auth token guards support
     ProductModule, // Import ProductModule for cache eviction
+    SmsModule,
   ],
   controllers: [OrderController],
   providers: [OrderService],

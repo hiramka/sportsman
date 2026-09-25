@@ -6,35 +6,51 @@ import * as nodemailer from 'nodemailer';
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private transporter: nodemailer.Transporter | null = null;
-  private isConfigured = false;
+  private ready: Promise<boolean>;
 
   constructor(private readonly configService: ConfigService) {
+    this.ready = this.initializeTransport();
+  }
+
+  private async initializeTransport(): Promise<boolean> {
     const host = this.configService.get<string>('SMTP_HOST');
     const port = this.configService.get<string>('SMTP_PORT');
     const user = this.configService.get<string>('SMTP_USER');
     const pass = this.configService.get<string>('SMTP_PASS');
 
-    if (host && port && user && pass) {
-      try {
-        const secure = this.configService.get<string>('SMTP_SECURE') === 'true';
-        this.transporter = nodemailer.createTransport({
-          host,
-          port: parseInt(port, 10),
-          secure,
-          auth: {
-            user,
-            pass,
-          },
-        });
-        this.isConfigured = true;
-        this.logger.log('📧 MailService SMTP Transporter successfully initialized.');
-      } catch (error) {
-        this.logger.error('Failed to initialize nodemailer transporter:', error.stack);
-      }
-    } else {
+    const isPlaceholder = (val?: string) =>
+      !val ||
+      val.includes('YOUR_') ||
+      val.includes('your_') ||
+      val.includes('EXAMPLE') ||
+      val.includes('example.com');
+
+    if (!(host && port && user && pass) || isPlaceholder(user) || isPlaceholder(pass)) {
       this.logger.warn(
-        '⚠️ SMTP configurations are missing in environment variables. Falling back to terminal logs for verification link simulation.',
+        '⚠️ SMTP credentials are not configured or contain default placeholders. Falling back to terminal logs for email verification simulation.',
       );
+      return false;
+    }
+
+    try {
+      const secure = this.configService.get<string>('SMTP_SECURE') === 'true';
+      this.transporter = nodemailer.createTransport({
+        host,
+        port: parseInt(port, 10),
+        secure,
+        auth: {
+          user,
+          pass,
+        },
+      });
+
+      await this.transporter.verify();
+      this.logger.log('📧 MailService SMTP transporter successfully initialized and verified.');
+      return true;
+    } catch (error) {
+      this.logger.error('Failed to initialize or verify nodemailer transporter:', error.stack || error);
+      this.transporter = null;
+      return false;
     }
   }
 
@@ -191,7 +207,8 @@ export class MailService {
       </html>
     `;
 
-    if (this.isConfigured && this.transporter) {
+    const isReady = await this.ready;
+    if (isReady && this.transporter) {
       try {
         await this.transporter.sendMail({
           from: fromAddress,
@@ -202,15 +219,14 @@ export class MailService {
         this.logger.log(`Verification email successfully sent to: ${email}`);
         return true;
       } catch (error) {
-        this.logger.error(`Failed to send verification email via SMTP to ${email}:`, error.stack);
-        // Fallback to printing in console if sending fails to avoid blocking the user flow
+        this.logger.error(`Failed to send verification email via SMTP to ${email}:`, error.stack || error);
         this.logFallback(email, name, verificationLink);
         return false;
       }
-    } else {
-      this.logFallback(email, name, verificationLink);
-      return false;
     }
+
+    this.logFallback(email, name, verificationLink);
+    return false;
   }
 
   private logFallback(email: string, name: string, verificationLink: string) {

@@ -32,6 +32,13 @@ export class OrderController {
     return this.orderService.findByEmailOrPhone(user.email, user.phone);
   }
 
+  @Get('analytics')
+  @UseGuards(AuthGuard)
+  @Roles('admin')
+  async getAnalytics() {
+    return this.orderService.getAnalytics();
+  }
+
   @Get(':id')
   async getOrderById(
     @Param('id') id: string,

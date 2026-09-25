@@ -23,6 +23,19 @@ export class ProductController {
     return this.productService.findById(id);
   }
 
+  @Get(':id/reviews')
+  async getReviews(@Param('id') id: string) {
+    return this.productService.getReviews(id);
+  }
+
+  @Post(':id/reviews')
+  async addReview(
+    @Param('id') id: string,
+    @Body() body: { userName: string; userEmail?: string; rating: number; comment: string }
+  ) {
+    return this.productService.addReview(id, body);
+  }
+
   // Gated Admin PNG upload endpoint
   @Post('upload-image')
   @UseGuards(AuthGuard)

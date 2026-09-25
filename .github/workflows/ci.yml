@@ -1,0 +1,38 @@
+name: Sportsman.ke Continuous Integration CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master, dev ]
+  pull_request:
+    branches: [ main, master, dev ]
+
+jobs:
+  build-and-test:
+    name: Build & Test Full-Stack Monorepo
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install All Monorepo Dependencies
+        run: npm run install:all
+
+      - name: Build React Frontend
+        run: npm run build:frontend
+
+      - name: Build NestJS Backend
+        run: npm run build:backend
+
+      - name: Run Backend Unit & Integration Tests
+        run: npm test --prefix backend

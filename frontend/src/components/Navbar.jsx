@@ -2,6 +2,7 @@ import React, { useState, useContext } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import ContactModal from './ContactModal';
 import {
   User,
   Shield,
@@ -15,7 +16,8 @@ import {
   ChevronDown,
   Lock,
   Layers,
-  FileText
+  FileText,
+  Mail
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -25,6 +27,7 @@ export default function Navbar() {
   const navigate = useNavigate();
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isContactOpen, setIsContactOpen] = useState(false);
 
   // Stats badge calculators
   const activeOrdersCount = orders.filter(o => o.status !== 'Delivered' && o.status !== 'Cancelled').length;
@@ -188,7 +191,17 @@ export default function Navbar() {
       </nav>
 
       {/* User Actions & Dropdown */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
+        {/* Contact Support Button */}
+        <button
+          onClick={() => setIsContactOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 border border-slate-800 hover:border-orange-500/40 text-slate-300 hover:text-orange-400 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
+          title="Contact Support via Web3Forms"
+        >
+          <Mail className="w-3.5 h-3.5 text-orange-500" />
+          <span className="hidden sm:inline">Contact Us</span>
+        </button>
+
         {/* Shopping Cart Shortcut for Customer & Admin */}
         {user && (user.role === 'customer' || user.role === 'admin') && (
           <div className="text-[10px] text-slate-500 font-bold select-none flex items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-900">
@@ -233,6 +246,16 @@ export default function Navbar() {
                   <button
                     onClick={() => {
                       setIsDropdownOpen(false);
+                      setIsContactOpen(true);
+                    }}
+                    className="w-full px-4 py-2.5 hover:bg-slate-900/60 text-slate-300 hover:text-orange-400 text-xs font-bold flex items-center gap-2 cursor-pointer transition-colors duration-150 border-b border-slate-900"
+                  >
+                    <Mail className="w-4 h-4 text-orange-500" />
+                    <span>Contact Support</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsDropdownOpen(false);
                       handleLogout();
                     }}
                     className="w-full px-4 py-3 hover:bg-slate-900/60 text-slate-400 hover:text-red-400 text-xs font-bold flex items-center gap-2 cursor-pointer transition-colors duration-150"
@@ -253,6 +276,9 @@ export default function Navbar() {
           </Link>
         )}
       </div>
+
+      {/* Web3Forms Contact Modal */}
+      <ContactModal isOpen={isContactOpen} onClose={() => setIsContactOpen(false)} />
     </header>
   );
 }

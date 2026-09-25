@@ -3,10 +3,6 @@ node_modules/
 backend/node_modules/
 frontend/node_modules/
 
-# Local Databases (Sandbox SQLite)
-*.db
-*.db-journal
-backend/sportsman_sandbox.db
 
 # Build Outputs
 dist/
@@ -16,12 +12,22 @@ dist-ssr/
 
 # Environment Variables & Keys
 .env
+*.env
+backend/.env
+frontend/.env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 *.pem
 *.key
+
+# Local Data & SQLite DBs
+data/
+backend/data/
+*.db
+*.sqlite
+*.sqlite3
 
 # Logs
 logs/

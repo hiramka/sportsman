@@ -26,25 +26,13 @@ function AppContent() {
           <Route path="/403" element={<Forbidden />} />
 
           {/* Customer Portal (Storefront) */}
-          <Route path="/" element={
-            <ProtectedRoute allowedRoles={['customer', 'admin', 'warehouse_staff', 'delivery_agent']}>
-              <CustomerPortal />
-            </ProtectedRoute>
-          } />
+          <Route path="/" element={<CustomerPortal />} />
           
           {/* Customer Shipment Tracker */}
-          <Route path="/tracker" element={
-            <ProtectedRoute allowedRoles={['customer', 'admin']}>
-              <CustomerPortal />
-            </ProtectedRoute>
-          } />
+          <Route path="/tracker" element={<CustomerPortal />} />
 
           {/* Customer Receipts Panel */}
-          <Route path="/receipts" element={
-            <ProtectedRoute allowedRoles={['customer', 'admin']}>
-              <CustomerPortal />
-            </ProtectedRoute>
-          } />
+          <Route path="/receipts" element={<CustomerPortal />} />
 
           {/* Admin Dashboard */}
           <Route path="/admin" element={

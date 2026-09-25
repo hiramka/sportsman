@@ -33,6 +33,16 @@ export const AuthProvider = ({ children }) => {
     fetchProfile();
   }, []);
 
+  const parseJsonOrText = async (response) => {
+    const text = await response.text();
+    if (!text) return null;
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { message: text };
+    }
+  };
+
   const login = async (email, password) => {
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
@@ -42,11 +52,15 @@ export const AuthProvider = ({ children }) => {
     });
 
     if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.message || 'Login failed.');
+      const errorData = await parseJsonOrText(res);
+      throw new Error(errorData?.message || 'Login failed.');
     }
 
-    const data = await res.json(); // { token, user: { id, name, email, phone, role } }
+    const data = await parseJsonOrText(res);
+    if (!data || !data.user) {
+      throw new Error('Login response was not valid JSON.');
+    }
+
     setUser(data.user);
     setIsAuthenticated(true);
     return data.user;
@@ -61,11 +75,15 @@ export const AuthProvider = ({ children }) => {
     });
 
     if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.message || 'Signup failed.');
+      const errorData = await parseJsonOrText(res);
+      throw new Error(errorData?.message || 'Signup failed.');
     }
 
-    const data = await res.json(); // { message, user: { id, name, email, phone, role } }
+    const data = await parseJsonOrText(res);
+    if (!data) {
+      throw new Error('Signup response was not valid JSON.');
+    }
+
     return data;
   };
 

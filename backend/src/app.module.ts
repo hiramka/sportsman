@@ -5,8 +5,8 @@ import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
-import * as net from 'net';
-import { join } from 'path';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // Entities
 import { User } from './entities/User.entity';
@@ -14,6 +14,8 @@ import { Product } from './entities/Product.entity';
 import { Order } from './entities/Order.entity';
 import { OrderItem } from './entities/OrderItem.entity';
 import { Coupon } from './entities/Coupon.entity';
+import { ContactMessage } from './entities/ContactMessage.entity';
+import { Review } from './entities/Review.entity';
 
 // Modules
 import { AuthModule } from './auth/auth.module';
@@ -23,6 +25,8 @@ import { CouponModule } from './coupon/coupon.module';
 import { MpesaModule } from './mpesa/mpesa.module';
 import { SupabaseModule } from './supabase/supabase.module';
 import { MailModule } from './mail/mail.module';
+import { ContactModule } from './contact/contact.module';
+import { HealthController } from './health/health.controller';
 
 import * as bcrypt from 'bcrypt';
 
@@ -37,66 +41,42 @@ import * as bcrypt from 'bcrypt';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => {
-        const isProd = configService.get<string>('NODE_ENV') === 'production';
-        const dbType = configService.get<string>('DB_TYPE') || (isProd ? 'postgres' : 'sqlite');
+        const env = configService.get<string>('NODE_ENV') || 'development';
+        const isProd = env === 'production';
+        const dbType = configService.get<string>('DB_TYPE') || 'postgres';
+        const useSsl = configService.get<string>('DB_SSL') === 'true';
         const host = configService.get<string>('DB_HOST') || 'localhost';
         const port = parseInt(configService.get<string>('DB_PORT'), 10) || 5432;
         const username = configService.get<string>('DB_USERNAME') || 'postgres';
+        const password = configService.get<string>('DB_PASSWORD') || 'postgres';
         const database = configService.get<string>('DB_DATABASE') || 'sportsman';
-        const useSsl = configService.get<string>('DB_SSL') === 'true';
-
-        let resolvedDbType = dbType;
-
-        if (!isProd && dbType === 'postgres') {
-          // Perform a quick TCP reachability check (2s timeout) to prevent ETIMEDOUT crashes in local sandbox/offline environments
-          const isReachable = await new Promise<boolean>((resolve) => {
-            const socket = new net.Socket();
-            const timer = setTimeout(() => {
-              socket.destroy();
-              resolve(false);
-            }, 2000);
-            socket.connect(port, host, () => {
-              clearTimeout(timer);
-              socket.end();
-              resolve(true);
-            });
-            socket.on('error', () => {
-              clearTimeout(timer);
-              resolve(false);
-            });
-          });
-
-          if (!isReachable) {
-            console.warn(`\n⚠️  WARNING: Supabase host ${host}:${port} is unreachable (TCP Timeout).`);
-            console.warn(`👉 Automatically falling back to local SQLite database (sportsman_sandbox.db) to prevent application crash.\n`);
-            resolvedDbType = 'sqlite';
-          }
-        }
+        const databasePath = configService.get<string>('DB_PATH') || './data/sportsman.db';
+        const databaseUrl = configService.get<string>('DATABASE_URL');
 
         console.log(`🔌 Database connection configuration resolved:`);
-        console.log(`   - Type:     ${resolvedDbType}`);
-        if (resolvedDbType === 'postgres') {
-          console.log(`   - Host:     ${host}`);
-          console.log(`   - Port:     ${port}`);
-          console.log(`   - Username: ${username}`);
-          console.log(`   - Database: ${database}`);
-          console.log(`   - SSL:      ${useSsl}`);
-        }
+        console.log(`   - Environment: ${env}`);
+        console.log(`   - Type:        ${dbType}`);
 
-        if (resolvedDbType === 'postgres') {
+        if (dbType === 'postgres') {
+          if (databaseUrl) {
+            console.log('   - Using DATABASE_URL from environment');
+          } else {
+            console.log(`   - Host:        ${host}`);
+            console.log(`   - Port:        ${port}`);
+            console.log(`   - Username:    ${username}`);
+            console.log(`   - Database:    ${database}`);
+            console.log(`   - SSL:         ${useSsl}`);
+          }
+
           return {
             type: 'postgres',
-            host,
-            port,
-            username,
-            password: configService.get<string>('DB_PASSWORD') || 'postgres',
-            database,
-            entities: [User, Product, Order, OrderItem, Coupon],
-            synchronize: !isProd, // Disable schema synchronize in production
+            ...(databaseUrl ? { url: databaseUrl } : { host, port, username, password, database }),
+            entities: [User, Product, Order, OrderItem, Coupon, ContactMessage, Review],
+            synchronize: !isProd,
             logging: false,
             ssl: useSsl ? { rejectUnauthorized: false } : false,
-            migrationsRun: isProd, // Automatically run pending migrations on startup in production
-            migrations: [join(__dirname, 'migrations', '*{.ts,.js}')],
+            migrationsRun: isProd,
+            migrations: [path.join(__dirname, 'migrations', '*{.ts,.js}')],
             extra: {
               max: 15,
               idleTimeoutMillis: 30000,
@@ -105,17 +85,22 @@ import * as bcrypt from 'bcrypt';
               keepAliveInitialDelayMillis: 10000,
             },
           };
-        } else {
-          return {
-            type: 'sqlite',
-            database: 'sportsman_sandbox.db',
-            entities: [User, Product, Order, OrderItem, Coupon],
-            synchronize: !isProd, // Disable schema synchronize in production
-            logging: false,
-            migrationsRun: isProd,
-            migrations: [join(__dirname, 'migrations', '*{.ts,.js}')],
-          };
         }
+
+        console.log(`   - Storage:     ${databasePath}`);
+
+        const dbDir = path.dirname(path.resolve(databasePath));
+        if (!fs.existsSync(dbDir)) {
+          fs.mkdirSync(dbDir, { recursive: true });
+        }
+
+        return {
+          type: 'sqlite',
+          database: databasePath,
+          entities: [User, Product, Order, OrderItem, Coupon, ContactMessage, Review],
+          synchronize: true,
+          logging: false,
+        };
       },
     }),
     AuthModule,
@@ -125,7 +110,9 @@ import * as bcrypt from 'bcrypt';
     MpesaModule,
     SupabaseModule,
     MailModule,
+    ContactModule,
   ],
+  controllers: [HealthController],
   providers: [
     {
       provide: APP_GUARD,
@@ -152,10 +139,10 @@ export class AppModule implements OnModuleInit {
         .execute();
       await this.entityManager.createQueryBuilder()
         .update(User)
-        .set({ role: 'delivery_agent' })
-        .where("role = :oldRole", { oldRole: 'delivery' })
+        .set({ isVerified: true })
+        .where("isVerified = :unverified", { unverified: false })
         .execute();
-      console.log('✓ Legacy database roles migrated successfully.');
+      console.log('✓ Legacy database roles and pending user verifications updated successfully.');
     } catch (err) {
       console.warn('Failed to run role migration query:', err.message);
     }

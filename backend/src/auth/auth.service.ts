@@ -43,10 +43,19 @@ export class AuthService {
     const savedUser = await this.userRepository.save(user);
     
     // Send verification email using MailService (falls back to simulation log if not configured)
-    await this.mailService.sendVerificationEmail(email, name, verificationToken);
+    const emailSent = await this.mailService.sendVerificationEmail(email, name, verificationToken);
+
+    // If SMTP is not active or email fails to send, auto-verify account so user can sign in immediately
+    if (!emailSent) {
+      savedUser.isVerified = true;
+      savedUser.verificationToken = null;
+      await this.userRepository.save(savedUser);
+    }
 
     return {
-      message: 'Registration successful. Please verify your email before signing in.',
+      message: emailSent
+        ? 'Registration successful. Please check your email inbox to verify your account.'
+        : 'Registration successful. Account activated! You can now sign in.',
       user: {
         id: savedUser.id,
         name: savedUser.name,

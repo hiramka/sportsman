@@ -159,8 +159,14 @@ export class MpesaService {
   }
 
   // Handles payment notification from Safaricom callback URL
-  async handleCallback(body: any): Promise<any> {
-    this.logger.log('Received M-Pesa Callback Notification payload from Safaricom');
+  async handleCallback(body: any, secret?: string, clientIp?: string): Promise<any> {
+    this.logger.log(`Received M-Pesa Callback Notification payload. IP: ${clientIp || 'unknown'}`);
+
+    const expectedSecret = this.configService.get<string>('MPESA_CALLBACK_SECRET');
+    if (expectedSecret && secret !== expectedSecret) {
+      this.logger.warn(`Unauthorized M-Pesa callback attempt blocked. Invalid secret provided.`);
+      throw new BadRequestException('Unauthorized M-Pesa callback signature.');
+    }
 
     const callbackData = body?.Body?.stkCallback;
     if (!callbackData) {
