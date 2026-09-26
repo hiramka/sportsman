@@ -50,7 +50,10 @@ pnpm-debug.log*
 CVS/
 Thumbs.db
 
-# Uploads & Temporary Local Scripts
-backend/public/uploads/
-delete_orders.js
+# Mobile App Isolated Build Output
+mobile-app/www/
+mobile-app/node_modules/
+mobile-app/android/.gradle/
+mobile-app/android/build/
+mobile-app/android/app/build/
 

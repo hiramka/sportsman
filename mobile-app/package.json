@@ -1,0 +1,20 @@
+{
+  "name": "sportsman-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sportsman.ke Mobile Application (Android APK & iOS Bundle)",
+  "scripts": {
+    "sync": "npx cap sync",
+    "copy": "npx cap copy",
+    "open:android": "npx cap open android",
+    "build:android": "npx cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/ios": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0"
+  }
+}
