@@ -1,0 +1,10 @@
+# Sportsman.ke Robots.txt
+User-agent: *
+Allow: /
+Allow: /receipts
+Allow: /tracker
+Disallow: /admin
+Disallow: /warehouse
+Disallow: /delivery
+
+Sitemap: https://sportsman.ke/sitemap.xml

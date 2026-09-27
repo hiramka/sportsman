@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Sportsman.ke</string>
+    <string name="title_activity_main">Sportsman.ke</string>
+    <string name="package_name">ke.sportsman.app</string>
+    <string name="custom_url_scheme">ke.sportsman.app</string>
+</resources>

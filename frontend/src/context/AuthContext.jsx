@@ -39,6 +39,9 @@ export const AuthProvider = ({ children }) => {
     try {
       return JSON.parse(text);
     } catch {
+      if (response.status === 404 || text.includes('NOT_FOUND') || text.includes('<!DOCTYPE')) {
+        return { message: 'Backend service API is unreachable (404 Not Found). Please verify that your backend server is deployed and VITE_API_URL is configured in Vercel.' };
+      }
       return { message: text };
     }
   };
