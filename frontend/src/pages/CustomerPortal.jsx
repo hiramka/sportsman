@@ -2,6 +2,7 @@ import React, { useState, useContext, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import SEOHead from '../components/SEOHead';
 import {
   Search,
   Filter,
@@ -400,8 +401,69 @@ export default function CustomerPortal() {
       .slice(0, 3);
   }, [selectedProduct, products]);
 
+  // Dynamic SEO Metadata computation for search engines & link previews
+  const dynamicSEO = useMemo(() => {
+    if (selectedProduct) {
+      return {
+        title: `${selectedProduct.name} - Buy Online in Nairobi | Sportsman.ke`,
+        description: `${selectedProduct.description} - KES ${selectedProduct.price.toLocaleString()}. Genuine ${selectedProduct.brand} gear with same-day Nairobi delivery and instant M-Pesa.`,
+        keywords: `${selectedProduct.name}, ${selectedProduct.brand}, ${selectedProduct.category} Kenya, Sports gear Nairobi`,
+        ogImage: selectedProduct.imageUrl,
+        ogType: 'product',
+        jsonLd: {
+          "@context": "https://schema.org/",
+          "@type": "Product",
+          "name": selectedProduct.name,
+          "image": [selectedProduct.imageUrl],
+          "description": selectedProduct.description,
+          "sku": selectedProduct.id,
+          "brand": {
+            "@type": "Brand",
+            "name": selectedProduct.brand
+          },
+          "offers": {
+            "@type": "Offer",
+            "url": window.location.href,
+            "priceCurrency": "KES",
+            "price": selectedProduct.price,
+            "itemCondition": "https://schema.org/NewCondition",
+            "availability": selectedProduct.stockQuantity > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock"
+          }
+        }
+      };
+    }
+
+    if (selectedCategory && selectedCategory !== 'All') {
+      return {
+        title: `${selectedCategory} Equipment & Apparel in Nairobi | Sportsman.ke`,
+        description: `Browse top quality ${selectedCategory} products at Sportsman.ke Kenya. Instant M-Pesa payments and fast delivery across Nairobi.`,
+        keywords: `${selectedCategory} Kenya, ${selectedCategory} Nairobi, buy ${selectedCategory} online, Sportsman Kenya`
+      };
+    }
+
+    if (showActiveTab === 'tracker') {
+      return {
+        title: "Track Shipment & Delivery Status | Sportsman.ke",
+        description: "Track your sports gear delivery live across Nairobi sub-counties with Sportsman.ke instant logistics tracker."
+      };
+    }
+
+    if (showActiveTab === 'receipts') {
+      return {
+        title: "Order Receipts & Purchase Records | Sportsman.ke",
+        description: "View and print official tax invoices and purchase receipts for your Sportsman.ke orders."
+      };
+    }
+
+    return {
+      title: "Sportsman.ke - Premium Nairobi Sports E-Commerce & Gear",
+      description: "Sportsman.ke is Kenya's premier e-commerce destination for footballs, team jerseys, basketballs, cleats, and table tennis gear with instant M-Pesa checkout and fast Nairobi delivery."
+    };
+  }, [selectedProduct, selectedCategory, showActiveTab]);
+
   return (
     <div className="flex-1 w-full bg-[#080B11] text-slate-100 flex flex-col">
+      <SEOHead {...dynamicSEO} />
       {/* Store Navigation Bar */}
       <div className="bg-[#0D1321]/60 border-b border-slate-900 px-4 md:px-8 py-3 flex items-center justify-between">
         <div className="flex items-center gap-6">

@@ -22,10 +22,14 @@ export default defineConfig({
     }
   },
   build: {
-    target: 'esnext',
+    target: 'es2022',
+    cssMinify: true,
     cssCodeSplit: true,
     assetsInlineLimit: 4096,
     chunkSizeWarningLimit: 1000,
+    modulePreload: {
+      polyfill: false,
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -42,6 +46,7 @@ export default defineConfig({
       },
     },
   },
+
   test: {
     globals: true,
     environment: 'jsdom',

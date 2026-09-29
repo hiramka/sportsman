@@ -2,14 +2,18 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <meta name="theme-color" content="#0B0F19" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     
     <!-- Primary SEO Meta Tags -->
     <title>Sportsman.ke - Premium Nairobi Sports E-Commerce & Gear</title>
     <meta name="title" content="Sportsman.ke - Premium Nairobi Sports E-Commerce & Gear" />
     <meta name="description" content="Sportsman.ke is Kenya's premier e-commerce destination for footballs, team jerseys, basketballs, cleats, and table tennis gear with instant M-Pesa checkout and fast Nairobi delivery." />
-    <meta name="keywords" content="Sportsman Kenya, Sports gear Nairobi, M-Pesa sports shop, Football boots Kenya, Footballs Nairobi, Basketballs Kenya, Sports jerseys Nairobi, Table tennis Kenya" />
-    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="Sportsman Kenya, Sports gear Nairobi, M-Pesa sports shop, Football boots Kenya, Footballs Nairobi, Basketballs Kenya, Sports jerseys Nairobi, Table tennis Kenya, Sports equipment online" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <meta name="language" content="English" />
     <meta name="author" content="Sportsman.ke" />
     <link rel="canonical" href="https://sportsman.ke" />
@@ -30,38 +34,51 @@
     <meta name="twitter:description" content="Buy authentic sports gear with instant M-Pesa checkout in Kenya." />
     <meta name="twitter:image" content="https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=1200&auto=format&fit=crop&q=80" />
 
-    <!-- Performance & Preconnect Asset Hints -->
+    <!-- Performance, Preconnect & Speed Asset Hints -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preconnect" href="https://images.unsplash.com" crossorigin>
+    <link rel="dns-prefetch" href="https://images.unsplash.com">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔥</text></svg>" />
 
-    <!-- Schema.org JSON-LD E-Commerce Structured Data -->
+    <!-- Schema.org JSON-LD E-Commerce & WebSite Structured Data for Search Engines -->
     <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "SportingGoodsStore",
-      "name": "Sportsman.ke",
-      "image": "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=1200&auto=format&fit=crop&q=80",
-      "url": "https://sportsman.ke",
-      "telephone": "+254712345678",
-      "priceRange": "KSh 500 - KSh 50000",
-      "currenciesAccepted": "KES",
-      "paymentAccepted": "M-Pesa, Cash on Delivery",
-      "address": {
-        "@type": "PostalAddress",
-        "streetAddress": "Nairobi Central",
-        "addressLocality": "Nairobi",
-        "addressCountry": "KE"
+    [
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Sportsman.ke",
+        "url": "https://sportsman.ke",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://sportsman.ke/?search={search_term_string}",
+          "query-input": "required name=search_term_string"
+        }
       },
-      "description": "Kenya's premier sports equipment & apparel online store offering same-day Nairobi delivery and M-Pesa payments.",
-      "aggregateRating": {
-        "@type": "AggregateRating",
-        "ratingValue": "4.9",
-        "reviewCount": "128"
+      {
+        "@context": "https://schema.org",
+        "@type": "SportingGoodsStore",
+        "name": "Sportsman.ke",
+        "image": "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=1200&auto=format&fit=crop&q=80",
+        "url": "https://sportsman.ke",
+        "telephone": "+254759238018",
+        "priceRange": "KSh 500 - KSh 50000",
+        "currenciesAccepted": "KES",
+        "paymentAccepted": "M-Pesa, Cash on Delivery, WhatsApp Order",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "Nairobi Central",
+          "addressLocality": "Nairobi",
+          "addressCountry": "KE"
+        },
+        "description": "Kenya's premier sports equipment & apparel online store offering same-day Nairobi delivery and M-Pesa payments.",
+        "aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": "4.9",
+          "reviewCount": "128"
+        }
       }
-    }
+    ]
     </script>
   </head>
   <body class="bg-[#0B0F19] text-slate-100 font-['Outfit',sans-serif] antialiased selection:bg-orange-500 selection:text-white">
@@ -69,3 +86,4 @@
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
+
