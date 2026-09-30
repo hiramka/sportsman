@@ -1,7 +1,9 @@
 import React, { createContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import { getApiBaseUrl } from '../config/api';
 
 export const AppContext = createContext();
+
 
 const DEFAULT_PRODUCTS = [
   {
@@ -145,7 +147,8 @@ const DEFAULT_QUOTATIONS = [
   }
 ];
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const API_BASE = getApiBaseUrl();
+
 
 export const AppProvider = ({ children }) => {
   const { user } = useAuth();
