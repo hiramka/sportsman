@@ -20,8 +20,14 @@ import {
   Mail,
   MessageSquare,
   Inbox,
-  Eye
+  Eye,
+  FileText,
+  Printer,
+  Send,
+  RefreshCw
 } from 'lucide-react';
+import QuotationModal from '../components/QuotationModal';
+import { printQuotation } from '../components/QuotationPrintView';
 
 export default function AdminPortal() {
   const {
@@ -37,17 +43,27 @@ export default function AdminPortal() {
     users,
     addUser,
     updateUser,
-    deleteUser
+    deleteUser,
+    quotations,
+    updateQuotationStatus,
+    deleteQuotation,
+    convertQuotationToOrder
   } = useContext(AppContext);
 
   const { user: currentUser } = useAuth();
 
   // Search & view filters
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'products' | 'orders' | 'coupons' | 'users' | 'messages'
+  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'products' | 'orders' | 'quotations' | 'coupons' | 'users' | 'messages'
   const [productSearch, setProductSearch] = useState('');
   const [orderSearch, setOrderSearch] = useState('');
   const [userSearch, setUserSearch] = useState('');
   const [messageSearch, setMessageSearch] = useState('');
+  const [quotationSearch, setQuotationSearch] = useState('');
+  const [quotationStatusFilter, setQuotationStatusFilter] = useState('All');
+
+  // Quotation Modal state
+  const [isQuotationModalOpen, setIsQuotationModalOpen] = useState(false);
+
 
   // Contact Messages State (Saved in Supabase DB)
   const [contactMessages, setContactMessages] = useState([]);
@@ -280,7 +296,22 @@ export default function AdminPortal() {
     );
   }, [users, userSearch]);
 
+  // Quotations filter
+  const filteredQuotations = useMemo(() => {
+    return (quotations || []).filter(q => {
+      const query = quotationSearch.toLowerCase();
+      const matchesSearch =
+        q.id.toLowerCase().includes(query) ||
+        q.clientName.toLowerCase().includes(query) ||
+        (q.organization && q.organization.toLowerCase().includes(query)) ||
+        q.phone.includes(query);
+      const matchesStatus = quotationStatusFilter === 'All' || q.status === quotationStatusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [quotations, quotationSearch, quotationStatusFilter]);
+
   // Handle Product Form Submit
+
   const handleProductSubmit = (e) => {
     e.preventDefault();
     if (!productForm.name || !productForm.price || !productForm.stockQuantity || !productForm.brand) {
@@ -523,9 +554,11 @@ export default function AdminPortal() {
               { id: 'dashboard', name: 'Dashboard Stats' },
               { id: 'products', name: 'Product Inventory' },
               { id: 'orders', name: 'Order Processing' },
+              { id: 'quotations', name: `Quotations & Invoices (${(quotations || []).length})` },
               { id: 'coupons', name: 'Coupon Campaigns' },
               { id: 'users', name: 'User Management' }
             ].map(tab => (
+
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
@@ -1013,7 +1046,204 @@ export default function AdminPortal() {
           </div>
         )}
 
-        {/* TAB 4: COUPON CAMPAIGNS MANAGER */}
+        {/* TAB 4: OFFICIAL QUOTATIONS & PROFORMA INVOICES */}
+        {activeTab === 'quotations' && (
+          <div className="space-y-6 animate-fade-in">
+            {/* Header Action Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0D1321]/45 border border-slate-800 p-5 rounded-2xl">
+              <div>
+                <h3 className="text-base font-black text-white m-0 uppercase tracking-tight flex items-center gap-2">
+                  <FileText className="text-orange-500 w-5 h-5" /> Official Quotations & Proforma Invoices
+                </h3>
+                <p className="text-xs text-slate-400 m-0">Generate, print, WhatsApp share, and track bulk quotes for schools and corporate clients</p>
+              </div>
+
+              <button
+                onClick={() => setIsQuotationModalOpen(true)}
+                className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-extrabold text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 cursor-pointer transition-all"
+              >
+                <Plus className="w-4 h-4" /> Create New Quotation
+              </button>
+            </div>
+
+            {/* Filters Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search by client, quote #, school..."
+                  value={quotationSearch}
+                  onChange={(e) => setQuotationSearch(e.target.value)}
+                  className="pl-10 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs w-64 focus:border-orange-500 text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 font-bold">Status Filter:</span>
+                <select
+                  value={quotationStatusFilter}
+                  onChange={(e) => setQuotationStatusFilter(e.target.value)}
+                  className="px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-bold text-slate-200 focus:outline-none cursor-pointer"
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="Draft">Draft</option>
+                  <option value="Sent">Sent</option>
+                  <option value="Accepted">Accepted</option>
+                  <option value="Converted to Order">Converted to Order</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Quotations List Table */}
+            {filteredQuotations.length === 0 ? (
+              <div className="bg-slate-900/20 border border-slate-800/40 border-dashed rounded-3xl p-12 text-center">
+                <FileText className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                <h4 className="text-sm font-bold text-slate-300 mb-1">No quotations found</h4>
+                <p className="text-xs text-slate-500 max-w-xs mx-auto mb-4">Create your first corporate quotation for schools, football clubs, or business clients.</p>
+                <button
+                  onClick={() => setIsQuotationModalOpen(true)}
+                  className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-xl cursor-pointer"
+                >
+                  + Create Quotation Now
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredQuotations.map(q => {
+                  let statusBg = 'bg-slate-800 text-slate-300';
+                  if (q.status === 'Sent') statusBg = 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20';
+                  if (q.status === 'Accepted') statusBg = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+                  if (q.status === 'Converted to Order') statusBg = 'bg-purple-500/10 text-purple-400 border border-purple-500/20';
+                  if (q.status === 'Rejected') statusBg = 'bg-red-500/10 text-red-400 border border-red-500/20';
+
+                  const dateStr = new Date(q.createdAt).toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' });
+
+                  // WhatsApp text builder
+                  const handleWhatsAppShare = () => {
+                    let text = `OFFICIAL QUOTATION from Sportsman.ke\n`;
+                    text += `Quote No: ${q.id}\n`;
+                    text += `Client: ${q.clientName} (${q.organization || 'Client'})\n`;
+                    text += `Amount: KES ${Number(q.grandTotal).toLocaleString()}\n\n`;
+                    text += `Items:\n`;
+                    q.items.forEach((item, idx) => {
+                      text += `${idx + 1}. ${item.product.name} x${item.quantity} @ KES ${Number(item.unitPrice || item.product.price).toLocaleString()}\n`;
+                    });
+                    text += `\nSubtotal: KES ${Number(q.subtotal).toLocaleString()}\n`;
+                    if (q.includeVat) text += `16% VAT: KES ${Number(q.vatAmount).toLocaleString()}\n`;
+                    text += `Grand Total: KES ${Number(q.grandTotal).toLocaleString()}\n\n`;
+                    text += `Valid Until: ${q.validUntil}\n`;
+                    text += `Till Number: 123456 (Sportsman.ke)\n`;
+
+                    const phone = q.phone.replace(/[^0-9]/g, '');
+                    const cleanPhone = phone.startsWith('0') ? `254${phone.substring(1)}` : phone;
+                    const url = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`;
+                    window.open(url, '_blank');
+                  };
+
+                  return (
+                    <div
+                      key={q.id}
+                      className="bg-[#0D1321]/45 border border-slate-800/80 rounded-2xl p-5 hover:border-orange-500/30 transition-all space-y-4 text-left"
+                    >
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-900">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-black text-orange-500 bg-orange-500/10 px-3 py-1 rounded-xl border border-orange-500/20">
+                            {q.id}
+                          </span>
+                          <div>
+                            <h4 className="text-sm font-black text-white m-0">{q.clientName}</h4>
+                            <p className="text-xs text-cyan-400 font-bold m-0">{q.organization || 'Individual Order'}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full ${statusBg}`}>
+                            {q.status}
+                          </span>
+                          <span className="text-sm font-black text-white">KES {Number(q.grandTotal).toLocaleString()}</span>
+                        </div>
+                      </div>
+
+                      {/* Line Items Preview */}
+                      <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-900 text-xs text-slate-300 space-y-1">
+                        <div className="text-[10px] uppercase font-bold text-slate-500 mb-1">Quote Items ({q.items.length}):</div>
+                        {q.items.map((item, idx) => (
+                          <div key={idx} className="flex justify-between items-center text-slate-300">
+                            <span>{item.quantity}x {item.product.name} ({item.product.brand})</span>
+                            <span className="font-bold">KES {(Number(item.unitPrice || item.product.price) * item.quantity).toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Footer Actions */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                        <div className="text-[11px] text-slate-500">
+                          Issued: <span className="text-slate-400">{dateStr}</span> • Valid Until: <span className="text-slate-400">{q.validUntil}</span> • Prepared By: <span className="text-slate-400">{q.preparedBy || 'Admin'}</span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          {/* Print / PDF Button */}
+                          <button
+                            onClick={() => printQuotation(q)}
+                            className="px-3 py-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
+                          >
+                            <Printer className="w-3.5 h-3.5 text-cyan-400" /> Print / PDF
+                          </button>
+
+                          {/* Share via WhatsApp */}
+                          <button
+                            onClick={handleWhatsAppShare}
+                            className="px-3 py-1.5 bg-emerald-950/60 border border-emerald-800/80 hover:bg-emerald-900/60 text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
+                          >
+                            <Send className="w-3.5 h-3.5" /> WhatsApp Quote
+                          </button>
+
+                          {/* Convert to Order */}
+                          {q.status !== 'Converted to Order' && (
+                            <button
+                              onClick={() => convertQuotationToOrder(q.id)}
+                              className="px-3 py-1.5 bg-purple-950/60 border border-purple-800/80 hover:bg-purple-900/60 text-purple-300 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5 text-purple-400" /> Convert to Order
+                            </button>
+                          )}
+
+                          {/* Status Select */}
+                          <select
+                            value={q.status}
+                            onChange={(e) => updateQuotationStatus(q.id, e.target.value)}
+                            className="px-2.5 py-1.5 bg-slate-900 border border-slate-800 text-xs font-bold text-slate-300 rounded-xl focus:outline-none cursor-pointer"
+                          >
+                            <option value="Draft">Draft</option>
+                            <option value="Sent">Sent</option>
+                            <option value="Accepted">Accepted</option>
+                            <option value="Converted to Order">Converted to Order</option>
+                            <option value="Rejected">Rejected</option>
+                          </select>
+
+                          {/* Delete */}
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Delete quotation ${q.id}?`)) deleteQuotation(q.id);
+                            }}
+                            className="p-1.5 text-slate-500 hover:text-red-400 cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 5: COUPON CAMPAIGNS MANAGER */}
+
         {activeTab === 'coupons' && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-fade-in">
             {/* Coupon Builder form */}
@@ -1553,7 +1783,14 @@ export default function AdminPortal() {
           </div>
         )}
 
+        {/* Quotation Creator Modal */}
+        <QuotationModal
+          isOpen={isQuotationModalOpen}
+          onClose={() => setIsQuotationModalOpen(false)}
+        />
       </div>
     </div>
   );
 }
+
+

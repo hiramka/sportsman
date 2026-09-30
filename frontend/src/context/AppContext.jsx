@@ -108,6 +108,42 @@ const DEFAULT_COUPONS = [
   { id: 'c-3', code: 'NAIROBI10', discountPercentage: 10, description: '10% off local delivery' }
 ];
 
+const DEFAULT_QUOTATIONS = [
+  {
+    id: 'QT-2026-001',
+    clientName: 'Coach Maurice Wambua',
+    organization: "St. Mary's High School Sports Dept",
+    email: 'sports@stmarysnairobi.ac.ke',
+    phone: '+254 722 123 456',
+    subCounty: 'Westlands',
+    deliveryAddress: 'Waiyaki Way, Nairobi',
+    status: 'Sent',
+    validUntil: '2026-10-30',
+    createdAt: new Date().toISOString(),
+    items: [
+      {
+        product: { id: 'prod-1', name: 'Sportsman Pro Match Football', brand: 'Sportsman', price: 3500 },
+        quantity: 10,
+        unitPrice: 3500,
+        discountPercent: 10
+      },
+      {
+        product: { id: 'prod-5', name: 'Professional Table Tennis Table', brand: 'Donic', price: 45000 },
+        quantity: 1,
+        unitPrice: 45000,
+        discountPercent: 5
+      }
+    ],
+    subtotal: 74250,
+    vatAmount: 11880,
+    includeVat: true,
+    shippingFee: 2000,
+    grandTotal: 88130,
+    terms: '50% deposit upon order confirmation. Balance due on delivery. Prices include 16% VAT.',
+    preparedBy: 'Sportsman Corporate Admin'
+  }
+];
+
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 export const AppProvider = ({ children }) => {
@@ -132,6 +168,11 @@ export const AppProvider = ({ children }) => {
     const saved = localStorage.getItem('sm_orders');
     return saved ? JSON.parse(saved) : [];
   });
+  const [quotations, setQuotations] = useState(() => {
+    const saved = localStorage.getItem('sm_quotations');
+    return saved ? JSON.parse(saved) : DEFAULT_QUOTATIONS;
+  });
+
   const [coupons, setCoupons] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [activeCoupon, setActiveCoupon] = useState(null);
@@ -712,6 +753,56 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  // Quotation Management Functions
+  const createQuotation = (quotationData) => {
+    const nextNum = quotations.length + 1;
+    const nextId = `QT-2026-${String(nextNum).padStart(3, '0')}`;
+    const newQuotation = {
+      id: nextId,
+      createdAt: new Date().toISOString(),
+      status: quotationData.status || 'Draft',
+      preparedBy: user?.name || 'Sportsman Corporate Admin',
+      ...quotationData
+    };
+
+    const updated = [newQuotation, ...quotations];
+    setQuotations(updated);
+    localStorage.setItem('sm_quotations', JSON.stringify(updated));
+    addNotification('success', `Quotation ${nextId} generated successfully!`);
+    return newQuotation;
+  };
+
+  const updateQuotationStatus = (id, status) => {
+    const updated = quotations.map(q => q.id === id ? { ...q, status } : q);
+    setQuotations(updated);
+    localStorage.setItem('sm_quotations', JSON.stringify(updated));
+    addNotification('info', `Quotation ${id} marked as ${status}`);
+  };
+
+  const deleteQuotation = (id) => {
+    const updated = quotations.filter(q => q.id !== id);
+    setQuotations(updated);
+    localStorage.setItem('sm_quotations', JSON.stringify(updated));
+    addNotification('warning', `Quotation ${id} removed.`);
+  };
+
+  const convertQuotationToOrder = async (quotationId) => {
+    const q = quotations.find(item => item.id === quotationId);
+    if (!q) return null;
+
+    const createdOrder = await createOrder({
+      name: q.clientName,
+      email: q.email,
+      phone: q.phone,
+      address: q.deliveryAddress || 'Nairobi',
+      subCounty: q.subCounty || 'Nairobi Central'
+    }, 'Corporate Proforma / Bank', q.items);
+
+    updateQuotationStatus(quotationId, 'Converted to Order');
+    addNotification('success', `Quotation ${quotationId} successfully converted to live Order!`);
+    return createdOrder;
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -744,9 +835,15 @@ export const AppProvider = ({ children }) => {
         addUser,
         updateUser,
         deleteUser,
+        quotations,
+        createQuotation,
+        updateQuotationStatus,
+        deleteQuotation,
+        convertQuotationToOrder,
         loading
       }}
     >
+
       {children}
     </AppContext.Provider>
   );
