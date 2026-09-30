@@ -162,9 +162,10 @@ export default function CustomerPortal() {
         <body>
           <div class="receipt-box">
             <div class="header">
-              <div class="title">SPORTSMAN<span>.KE</span></div>
-              <div class="subtitle">Nairobi Premium Sports Hub</div>
+              <img src="/logo.jpg" alt="SPORTSMAN.KE" style="height: 55px; width: auto; object-fit: contain; margin: 0 auto 6px auto; display: block;" />
+              <div class="subtitle">THE PROFESSIONAL ATHLETE</div>
             </div>
+
             
             <div class="details">
               <div>

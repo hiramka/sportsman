@@ -62,16 +62,13 @@ export default function Login() {
         
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center space-y-2">
-          <div className="bg-gradient-to-r from-orange-500 to-red-600 w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/20">
-            <span className="text-2xl">🔥</span>
-          </div>
-          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white uppercase m-0 leading-none">
-            Sportsman<span className="text-orange-500">.ke</span>
-          </h1>
-          <p className="text-[10px] text-slate-400 tracking-wider uppercase font-semibold m-0 flex items-center gap-1">
-            <Activity className="w-3.5 h-3.5 text-orange-500 animate-pulse" /> Corporate Secure Gateway
-          </p>
+          <img
+            src="/logo.jpg"
+            alt="SPORTSMAN.KE - THE PROFESSIONAL ATHLETE"
+            className="h-16 w-auto rounded-xl object-contain bg-white p-2 shadow-xl shadow-orange-500/10"
+          />
         </div>
+
 
         {/* Login/Signup Box */}
         <div className="bg-[#0D1321]/60 border border-slate-800/80 p-8 rounded-3xl shadow-2xl space-y-6">

@@ -52,19 +52,14 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-40 w-full glass-panel border-b border-slate-800/80 px-4 md:px-8 py-3.5 flex flex-col md:flex-row items-center justify-between gap-4 select-none">
       {/* Brand Logo */}
-      <Link to="/" className="flex items-center gap-2.5 group">
-        <div className="bg-gradient-to-r from-orange-500 to-red-600 w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/20 group-hover:scale-105 transition-transform">
-          <span className="text-xl font-bold text-white">🔥</span>
-        </div>
-        <div className="text-left">
-          <h1 className="text-xl font-black tracking-tight text-white m-0 leading-none">
-            Sportsman<span className="text-orange-500">.ke</span>
-          </h1>
-          <p className="text-[9px] text-slate-400 tracking-wider uppercase font-semibold m-0 flex items-center gap-1 mt-1">
-            <Activity className="w-3 h-3 text-orange-500 animate-pulse" /> Corporate Logistics Node
-          </p>
-        </div>
+      <Link to="/" className="flex items-center gap-3 group">
+        <img
+          src="/logo.jpg"
+          alt="SPORTSMAN.KE - THE PROFESSIONAL ATHLETE"
+          className="h-10 md:h-12 w-auto rounded-lg object-contain bg-white p-1 shadow-md shadow-orange-500/10 group-hover:scale-105 transition-transform"
+        />
       </Link>
+
 
       {/* Conditional Navigation Items Based on Logged-in User Role */}
       <nav className="flex items-center gap-2">

@@ -210,13 +210,14 @@ export const printQuotation = (quotation) => {
           <!-- Header -->
           <div class="header">
             <div>
-              <h1 class="brand-title">SPORTSMAN<span>.KE</span></h1>
-              <div class="brand-sub">Kenya Premier Sports Hub & Equipment Supplier</div>
-              <div style="font-size: 11px; color: #64748b; margin-top: 8px;">
+              <img src="/logo.jpg" alt="SPORTSMAN.KE" style="height: 60px; width: auto; object-fit: contain; margin-bottom: 8px;" />
+              <div class="brand-sub">THE PROFESSIONAL ATHLETE</div>
+              <div style="font-size: 11px; color: #64748b; margin-top: 6px;">
                 Nairobi Central, Kenya • Tel: +254 759 238018<br>
                 Email: Sportsman.ke001@gmail.com • Web: https://sportsman.ke
               </div>
             </div>
+
             <div class="doc-type">
               <div class="doc-badge">Official Quotation</div>
               <div class="quote-num">${quotation.id}</div>

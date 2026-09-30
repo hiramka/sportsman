@@ -23,7 +23,7 @@ export default function QuotationModal({ isOpen, onClose, initialData = null }) 
   const [subCounty, setSubCounty] = useState(NAIROBI_SUB_COUNTIES[0]);
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [validityDays, setValidityDays] = useState('30');
-  const [includeVat, setIncludeVat] = useState(true);
+  const [vatMode, setVatMode] = useState('exclusive'); // 'exclusive' | 'inclusive' | 'exempt'
   const [shippingFee, setShippingFee] = useState('1500');
   const [terms, setTerms] = useState('50% deposit upon order placement. Balance payable on delivery. Prices include 16% VAT.');
 
@@ -78,12 +78,26 @@ export default function QuotationModal({ isOpen, onClose, initialData = null }) 
       return sum + Math.round(price * qty * (1 - disc / 100));
     }, 0);
 
-    const vatAmount = includeVat ? Math.round(subtotal * 0.16) : 0;
-    const shipping = Number(shippingFee || 0);
-    const grandTotal = subtotal + vatAmount + shipping;
+    let vatAmount = 0;
+    let grandTotal = subtotal;
 
-    return { subtotal, vatAmount, shipping, grandTotal };
-  }, [items, includeVat, shippingFee]);
+    if (vatMode === 'exclusive') {
+      vatAmount = Math.round(subtotal * 0.16);
+      grandTotal = subtotal + vatAmount;
+    } else if (vatMode === 'inclusive') {
+      vatAmount = Math.round(subtotal * (16 / 116));
+      grandTotal = subtotal;
+    } else {
+      vatAmount = 0;
+      grandTotal = subtotal;
+    }
+
+    const shipping = Number(shippingFee || 0);
+    grandTotal += shipping;
+
+    return { subtotal, vatAmount, shipping, grandTotal, vatMode };
+  }, [items, vatMode, shippingFee]);
+
 
   // Submit Handler
   const handleSubmit = (e) => {
@@ -107,12 +121,14 @@ export default function QuotationModal({ isOpen, onClose, initialData = null }) 
       items,
       subtotal: calculations.subtotal,
       vatAmount: calculations.vatAmount,
-      includeVat,
+      vatMode: calculations.vatMode,
+      includeVat: calculations.vatMode !== 'exempt',
       shippingFee: calculations.shipping,
       grandTotal: calculations.grandTotal,
       terms,
       status: 'Sent'
     };
+
 
     createQuotation(quotationData);
     onClose();
