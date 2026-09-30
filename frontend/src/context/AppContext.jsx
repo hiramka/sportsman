@@ -61,7 +61,7 @@ const DEFAULT_PRODUCTS = [
     stockQuantity: 2,
     reorderThreshold: 2,
     brand: 'Donic',
-    imageUrl: 'https://images.unsplash.com/photo-1609710223199-14b36c6ca5d4?w=500&auto=format&fit=crop&q=60',
+    imageUrl: 'https://images.unsplash.com/photo-1534158914592-062992fbe900?w=500&auto=format&fit=crop&q=60',
     warehouseLocation: 'Zone D - Shelf 1'
   },
   {
@@ -97,10 +97,11 @@ const DEFAULT_PRODUCTS = [
     stockQuantity: 5,
     reorderThreshold: 3,
     brand: 'Sportsman',
-    imageUrl: 'https://images.unsplash.com/photo-1519766304817-4f37bda74a27?w=500&auto=format&fit=crop&q=60',
+    imageUrl: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=500&auto=format&fit=crop&q=60',
     warehouseLocation: 'Aisle B - Row 3'
   }
 ];
+
 
 const DEFAULT_COUPONS = [
   { id: 'c-1', code: 'SPORT50', discountPercentage: 50, description: '50% off flash sale' },

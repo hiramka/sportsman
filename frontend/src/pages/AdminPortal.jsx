@@ -149,8 +149,8 @@ export default function AdminPortal() {
     const file = e.target.files[0];
     if (!file) return;
 
-    if (file.type !== 'image/png') {
-      setUploadError('Only PNG files are allowed!');
+    if (!file.type.startsWith('image/')) {
+      setUploadError('Please select a valid image file (PNG, JPG, WEBP).');
       return;
     }
 
@@ -158,36 +158,43 @@ export default function AdminPortal() {
     setUploading(true);
 
     try {
+      // Convert to static Data URL as reliable local asset
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const staticDataUrl = reader.result;
+        setProductForm(prev => ({ ...prev, imageUrl: staticDataUrl }));
+        setUploading(false);
+      };
+      reader.onerror = () => {
+        throw new Error('Could not read image file.');
+      };
+      reader.readAsDataURL(file);
+
+      // Also attempt backend upload if server is active
       const formData = new FormData();
       formData.append('image', file);
-
       const token = sessionStorage.getItem('sm_token_admin');
-
-      const response = await fetch(`${API_BASE}/products/upload-image`, {
+      fetch(`${API_BASE}/products/upload-image`, {
         method: 'POST',
-        headers: {
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
+        headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
         body: formData,
         credentials: 'include',
+      }).then(async response => {
+        if (response.ok) {
+          const data = await response.json();
+          const host = API_BASE.replace('/api', '');
+          setProductForm(prev => ({ ...prev, imageUrl: `${host}${data.imageUrl}` }));
+        }
+      }).catch(err => {
+        console.warn('Backend image upload fallback to local static data URL.', err);
       });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.message || 'Image upload failed.');
-      }
-
-      const data = await response.json();
-      const host = API_BASE.replace('/api', '');
-      const fullUrl = `${host}${data.imageUrl}`;
-
-      setProductForm(prev => ({ ...prev, imageUrl: fullUrl }));
     } catch (err) {
       setUploadError(err.message || 'Image upload failed.');
-    } finally {
       setUploading(false);
     }
   };
+
+
 
   // Form states - Coupon Creator
   const [couponForm, setCouponForm] = useState({

@@ -28,8 +28,16 @@ export default function QuotationModal({ isOpen, onClose, initialData = null }) 
   const [terms, setTerms] = useState('50% deposit upon order placement. Balance payable on delivery. Prices include 16% VAT.');
 
   // Quotation Items state
+  const [itemSourceMode, setItemSourceMode] = useState('catalogue'); // 'catalogue' | 'custom'
   const [selectedProductId, setSelectedProductId] = useState('');
   const [items, setItems] = useState([]);
+
+  // Custom Item Form State
+  const [customName, setCustomName] = useState('');
+  const [customBrand, setCustomBrand] = useState('');
+  const [customPrice, setCustomPrice] = useState('');
+  const [customQuantity, setCustomQuantity] = useState('1');
+  const [customDiscount, setCustomDiscount] = useState('0');
 
   // Add Item to Quotation
   const handleAddItem = () => {
@@ -54,6 +62,39 @@ export default function QuotationModal({ isOpen, onClose, initialData = null }) 
     ]);
     setSelectedProductId('');
   };
+
+  // Add Custom / Non-Inventory Item
+  const handleAddCustomItem = () => {
+    if (!customName.trim() || !customPrice) {
+      alert('Please enter a custom product description/name and unit price.');
+      return;
+    }
+
+    const customId = `custom-${Date.now()}`;
+    setItems(prev => [
+      ...prev,
+      {
+        product: {
+          id: customId,
+          name: customName.trim(),
+          brand: customBrand.trim() || 'Custom Order',
+          category: 'Custom Item',
+          price: Number(customPrice),
+          isCustom: true
+        },
+        quantity: Number(customQuantity || 1),
+        unitPrice: Number(customPrice),
+        discountPercent: Number(customDiscount || 0)
+      }
+    ]);
+
+    setCustomName('');
+    setCustomBrand('');
+    setCustomPrice('');
+    setCustomQuantity('1');
+    setCustomDiscount('0');
+  };
+
 
   // Remove Item
   const handleRemoveItem = (index) => {
@@ -270,30 +311,136 @@ export default function QuotationModal({ isOpen, onClose, initialData = null }) 
               </h3>
             </div>
 
-            {/* Product Selector Dropdown */}
-            <div className="flex items-center gap-2">
-              <select
-                value={selectedProductId}
-                onChange={e => setSelectedProductId(e.target.value)}
-                className="flex-1 px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:border-orange-500 focus:outline-none cursor-pointer text-xs"
-              >
-                <option value="">-- Select Product from Catalogue --</option>
-                {products.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} - [{p.brand}] (KES {p.price.toLocaleString()})
-                  </option>
-                ))}
-              </select>
-
+            {/* Source Mode Selector */}
+            <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
               <button
                 type="button"
-                onClick={handleAddItem}
-                disabled={!selectedProductId}
-                className="px-4 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                onClick={() => setItemSourceMode('catalogue')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  itemSourceMode === 'catalogue'
+                    ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                    : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
+                }`}
               >
-                <Plus className="w-4 h-4" /> Add Item
+                Select Store Catalogue Product
+              </button>
+              <button
+                type="button"
+                onClick={() => setItemSourceMode('custom')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  itemSourceMode === 'custom'
+                    ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                    : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
+                }`}
+              >
+                + Add Custom / Non-Inventory Item
               </button>
             </div>
+
+            {itemSourceMode === 'catalogue' ? (
+              /* Product Selector Dropdown */
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedProductId}
+                  onChange={e => setSelectedProductId(e.target.value)}
+                  className="flex-1 px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:border-orange-500 focus:outline-none cursor-pointer text-xs"
+                >
+                  <option value="">-- Select Product from Catalogue --</option>
+                  {products.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} - [{p.brand}] (KES {p.price.toLocaleString()})
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={handleAddItem}
+                  disabled={!selectedProductId}
+                  className="px-4 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                >
+                  <Plus className="w-4 h-4" /> Add Item
+                </button>
+              </div>
+            ) : (
+              /* Custom Non-Inventory Item Form */
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3 text-left">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                      Custom Product Description / Name *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Custom Sublimated Jersey Kit (Set of 20) or Special Order Boots"
+                      value={customName}
+                      onChange={e => setCustomName(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white focus:border-orange-500 focus:outline-none text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                      Brand / Supplier
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Sportsman Custom / Adidas"
+                      value={customBrand}
+                      onChange={e => setCustomBrand(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white focus:border-orange-500 focus:outline-none text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                      Unit Price (KES) *
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 2500"
+                      value={customPrice}
+                      onChange={e => setCustomPrice(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white focus:border-orange-500 focus:outline-none text-xs font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                      Quantity
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={customQuantity}
+                      onChange={e => setCustomQuantity(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white focus:border-orange-500 focus:outline-none text-xs font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                      Discount %
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={customDiscount}
+                      onChange={e => setCustomDiscount(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-emerald-400 focus:border-orange-500 focus:outline-none text-xs font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    onClick={handleAddCustomItem}
+                    className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                  >
+                    <Plus className="w-4 h-4" /> Add Custom Item to Quote
+                  </button>
+                </div>
+              </div>
+            )}
+
 
             {/* Selected Items Table */}
             {items.length === 0 ? (

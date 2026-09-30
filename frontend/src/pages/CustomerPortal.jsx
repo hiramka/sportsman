@@ -742,7 +742,12 @@ export default function CustomerPortal() {
                               className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
                               alt={p.name}
                               loading="lazy"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&auto=format&fit=crop&q=60';
+                              }}
                             />
+
                             {/* Stock level badge overlay */}
                             {isOutOfStock ? (
                               <div className="absolute top-2 left-2 bg-red-600/90 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-md tracking-wider">
