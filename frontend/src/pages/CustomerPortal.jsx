@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import SEOHead from '../components/SEOHead';
+import QuotationModal from '../components/QuotationModal';
+import { printQuotation } from '../components/QuotationPrintView';
 import {
   Search,
   Filter,
@@ -26,7 +28,9 @@ import {
   TrendingUp,
   Award,
   FileText,
-  Printer
+  Printer,
+  Building,
+  Download
 } from 'lucide-react';
 
 const NAIROBI_SUB_COUNTIES = [
@@ -54,7 +58,12 @@ export default function CustomerPortal() {
     triggerMpesaPush,
     activeCoupon,
     applyCoupon,
-    API_BASE
+    API_BASE,
+    quotations,
+    createQuotation,
+    updateQuotationStatus,
+    deleteQuotation,
+    convertQuotationToOrder
   } = useContext(AppContext);
   const { user: currentUser } = useAuth();
 
@@ -69,11 +78,16 @@ export default function CustomerPortal() {
   // Interactive panels
   const location = useLocation();
   const navigate = useNavigate();
-  const showActiveTab = location.pathname === '/tracker' ? 'tracker' : location.pathname === '/receipts' ? 'receipts' : 'shop';
+  const showActiveTab = location.pathname === '/tracker' ? 'tracker' : location.pathname === '/receipts' ? 'receipts' : location.pathname === '/quotations' ? 'quotations' : 'shop';
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [activeTrackingOrder, setActiveTrackingOrder] = useState(null);
+
+  // Quotation State
+  const [isQuotationModalOpen, setIsQuotationModalOpen] = useState(false);
+  const [quotationSearch, setQuotationSearch] = useState('');
+  const [quotationStatusFilter, setQuotationStatusFilter] = useState('All');
 
   // Coupon state
   const [couponCodeText, setCouponCodeText] = useState('');
@@ -292,6 +306,21 @@ export default function CustomerPortal() {
     });
   }, [orders, receiptSearch]);
 
+  // Filtered Quotations for the Quotations Tab
+  const filteredQuotations = useMemo(() => {
+    const query = (quotationSearch || '').toLowerCase();
+    return (quotations || []).filter(q => {
+      if (!q) return false;
+      const matchesSearch =
+        (q.id && String(q.id).toLowerCase().includes(query)) ||
+        (q.clientName && String(q.clientName).toLowerCase().includes(query)) ||
+        (q.organization && String(q.organization).toLowerCase().includes(query)) ||
+        (q.phone && String(q.phone).includes(query));
+      const matchesStatus = quotationStatusFilter === 'All' || q.status === quotationStatusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [quotations, quotationSearch, quotationStatusFilter]);
+
   // Cart helper calculations
   const cartSubtotal = useMemo(() => {
     return cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
@@ -499,6 +528,15 @@ export default function CustomerPortal() {
               }`}
           >
             My Receipts
+          </button>
+          <button
+            onClick={() => navigate('/quotations')}
+            className={`text-sm font-bold pb-1 cursor-pointer transition-all duration-200 ${showActiveTab === 'quotations'
+                ? 'text-orange-500 border-b-2 border-orange-500'
+                : 'text-slate-400 hover:text-slate-200'
+              }`}
+          >
+            Quotations & RFQ {(quotations || []).length > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] bg-orange-500 text-white font-extrabold">{(quotations || []).length}</span>}
           </button>
         </div>
 
@@ -1241,6 +1279,176 @@ export default function CustomerPortal() {
         </section>
       )}
 
+      {/* --- QUOTATIONS & PROFORMA INVOICES SECTION --- */}
+      {showActiveTab === 'quotations' && (
+        <section className="max-w-6xl mx-auto px-4 md:px-8 py-10 flex-1 w-full animate-fade-in">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 text-orange-500 text-xs font-bold border border-orange-500/20 mb-2">
+                <FileText className="w-3.5 h-3.5" />
+                <span>Institutional & Corporate Procurement</span>
+              </div>
+              <h1 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tight">
+                Official Quotations & Proforma Invoices
+              </h1>
+              <p className="text-xs md:text-sm text-slate-400 font-light mt-1">
+                Generate and print 16% VAT compliant proforma quotations for schools, sports clubs, corporate teams, and bulk purchases.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setIsQuotationModalOpen(true)}
+              className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white px-5 py-3 rounded-xl font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 transition-all cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Request New Quotation</span>
+            </button>
+          </div>
+
+          {/* Search & Status Filters */}
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search quotations by ID, client name, or organization..."
+                value={quotationSearch}
+                onChange={(e) => setQuotationSearch(e.target.value)}
+                className="w-full bg-slate-900/60 border border-slate-800 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500"
+              />
+            </div>
+            <div className="flex items-center gap-2 bg-slate-900/60 border border-slate-800 px-3 py-1.5 rounded-xl">
+              <Filter className="w-3.5 h-3.5 text-slate-400" />
+              <select
+                value={quotationStatusFilter}
+                onChange={(e) => setQuotationStatusFilter(e.target.value)}
+                className="bg-transparent text-xs font-bold text-slate-300 focus:outline-none cursor-pointer"
+              >
+                <option value="All" className="bg-slate-900">All Statuses</option>
+                <option value="Draft" className="bg-slate-900">Draft</option>
+                <option value="Approved" className="bg-slate-900">Approved</option>
+                <option value="Converted to Order" className="bg-slate-900">Converted to Order</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Quotation List Cards */}
+          {filteredQuotations.length === 0 ? (
+            <div className="glass-panel p-12 rounded-3xl text-center border-slate-800/80 my-6">
+              <FileText className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+              <h3 className="text-base font-bold text-white mb-1">No Quotations Found</h3>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto mb-6">
+                You haven't requested any corporate quotations yet. Click below to create an official VAT quotation.
+              </p>
+              <button
+                onClick={() => setIsQuotationModalOpen(true)}
+                className="px-5 py-2.5 bg-orange-500 text-white font-extrabold text-xs rounded-xl hover:bg-orange-600 transition-all cursor-pointer shadow-md"
+              >
+                + Create Quotation Now
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {filteredQuotations.map((q) => {
+                const isConverted = q.status === 'Converted to Order';
+                return (
+                  <div
+                    key={q.id}
+                    className="glass-panel p-6 rounded-3xl border-slate-800/80 flex flex-col justify-between space-y-4 hover:border-orange-500/30 transition-all text-left relative overflow-hidden"
+                  >
+                    {/* Header */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-black text-white font-mono">{q.id}</span>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                            isConverted
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                              : 'bg-orange-500/10 text-orange-400 border border-orange-500/30'
+                          }`}>
+                            {q.status}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          {new Date(q.createdAt || Date.now()).toLocaleDateString('en-KE')}
+                        </span>
+                      </div>
+
+                      <div className="text-xs text-slate-300 space-y-0.5 mb-4">
+                        <p className="font-bold text-white">{q.clientName} {q.organization ? `(${q.organization})` : ''}</p>
+                        <p className="text-[11px] text-slate-400">{q.email || q.phone} &bull; {q.subCounty || 'Nairobi'}</p>
+                      </div>
+
+                      {/* Line Items snippet */}
+                      <div className="bg-slate-950/60 rounded-2xl p-3 border border-slate-900 space-y-2 mb-4">
+                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 block">Quotation Line Items ({q.items?.length || 0})</span>
+                        {(q.items || []).slice(0, 3).map((item, idx) => (
+                          <div key={idx} className="flex justify-between text-xs text-slate-300">
+                            <span className="truncate max-w-[200px]">{item.product?.name || 'Custom Item'}</span>
+                            <span className="font-mono text-slate-400">x{item.quantity} &bull; KES {((item.unitPrice || item.product?.price || 0) * item.quantity).toLocaleString()}</span>
+                          </div>
+                        ))}
+                        {(q.items || []).length > 3 && (
+                          <p className="text-[10px] text-slate-500 italic">+ {(q.items || []).length - 3} more items...</p>
+                        )}
+                      </div>
+
+                      {/* Price Breakdown */}
+                      <div className="space-y-1 text-xs text-slate-400 border-t border-slate-900 pt-3">
+                        <div className="flex justify-between">
+                          <span>Subtotal:</span>
+                          <span className="font-mono text-slate-300">KES {Number(q.subtotal || 0).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>16% VAT:</span>
+                          <span className="font-mono text-slate-300">KES {Number(q.vatAmount || 0).toLocaleString()}</span>
+                        </div>
+                        {Number(q.shippingFee || 0) > 0 && (
+                          <div className="flex justify-between">
+                            <span>Delivery Fee:</span>
+                            <span className="font-mono text-slate-300">KES {Number(q.shippingFee).toLocaleString()}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-sm font-black text-white pt-2 border-t border-slate-900">
+                          <span>Grand Total:</span>
+                          <span className="text-orange-500">KES {Number(q.grandTotal || 0).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-900">
+                      <button
+                        onClick={() => printQuotation(q)}
+                        className="flex-1 px-3 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-orange-500/40 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <Printer className="w-3.5 h-3.5 text-orange-400" />
+                        <span>Print Proforma PDF</span>
+                      </button>
+
+                      {!isConverted && (
+                        <button
+                          onClick={async () => {
+                            if (window.confirm(`Convert Quotation ${q.id} to a live order?`)) {
+                              await convertQuotationToOrder(q.id);
+                              navigate('/tracker');
+                            }
+                          }}
+                          className="flex-1 px-3 py-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
+                        >
+                          <ShoppingBag className="w-3.5 h-3.5" />
+                          <span>Convert to Order</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
       {/* FOOTER */}
       <footer className="bg-[#05070B] border-t border-slate-900/80 py-8 px-4 md:px-8 text-center text-slate-500 text-xs">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
@@ -1478,16 +1686,29 @@ export default function CustomerPortal() {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => {
-                    setIsCartOpen(false);
-                    setIsCheckoutOpen(true);
-                  }}
-                  className="w-full py-3.5 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white text-xs md:text-sm font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 transition-all duration-300 cursor-pointer"
-                >
-                  <span>Proceed to Checkout</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
+                <div className="grid grid-cols-1 gap-2">
+                  <button
+                    onClick={() => {
+                      setIsCartOpen(false);
+                      setIsCheckoutOpen(true);
+                    }}
+                    className="w-full py-3.5 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white text-xs md:text-sm font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 transition-all duration-300 cursor-pointer"
+                  >
+                    <span>Proceed to Checkout</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsCartOpen(false);
+                      setIsQuotationModalOpen(true);
+                    }}
+                    className="w-full py-2.5 bg-slate-900 border border-orange-500/40 hover:bg-orange-500/10 text-orange-400 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Request Official VAT Quotation</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -2062,6 +2283,12 @@ export default function CustomerPortal() {
           WhatsApp Support
         </span>
       </a>
+
+      {/* Quotation Creator Modal */}
+      <QuotationModal
+        isOpen={isQuotationModalOpen}
+        onClose={() => setIsQuotationModalOpen(false)}
+      />
     </div>
   );
 }

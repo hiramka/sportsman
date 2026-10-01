@@ -101,6 +101,17 @@ export default function Navbar() {
                   <FileText className="w-4 h-4" />
                   <span>My Receipts</span>
                 </Link>
+                <Link
+                  to="/quotations"
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300 ${
+                    currentPath === '/quotations'
+                      ? 'bg-orange-500/10 text-orange-500 border border-orange-500/30'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <FileText className="w-4 h-4 text-orange-400" />
+                  <span>Quotations & RFQ</span>
+                </Link>
               </>
             )}
 

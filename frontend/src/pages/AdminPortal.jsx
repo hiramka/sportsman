@@ -205,29 +205,36 @@ export default function AdminPortal() {
 
   // Calculate Dashboard Metrics
   const metrics = useMemo(() => {
-    const paidOrders = orders.filter(o => o.status !== 'Pending Payment' && o.status !== 'Cancelled');
-    const totalSales = paidOrders.reduce((sum, o) => sum + Number(o.totalAmount), 0);
-    const lowStockCount = products.filter(p => p.stockQuantity <= p.reorderThreshold).length;
+    const safeOrders = orders || [];
+    const safeProducts = products || [];
+    const safeCoupons = coupons || [];
+
+    const paidOrders = safeOrders.filter(o => o && o.status !== 'Pending Payment' && o.status !== 'Cancelled');
+    const totalSales = paidOrders.reduce((sum, o) => sum + Number(o?.totalAmount || 0), 0);
+    const lowStockCount = safeProducts.filter(p => p && Number(p.stockQuantity || 0) <= Number(p.reorderThreshold || 0)).length;
 
     return {
       sales: totalSales,
-      ordersCount: orders.length,
+      ordersCount: safeOrders.length,
       lowStock: lowStockCount,
-      activePromos: coupons.length
+      activePromos: safeCoupons.length
     };
   }, [orders, products, coupons]);
 
   // Calculate Category Shares for progress analytics
   const categoryShares = useMemo(() => {
-    const paidOrders = orders.filter(o => o.status !== 'Pending Payment' && o.status !== 'Cancelled');
+    const safeOrders = orders || [];
+    const paidOrders = safeOrders.filter(o => o && o.status !== 'Pending Payment' && o.status !== 'Cancelled');
     const categoryTotals = {};
     let totalQty = 0;
 
     paidOrders.forEach(order => {
-      order.items.forEach(item => {
+      (order?.items || []).forEach(item => {
+        if (!item || !item.product) return;
         const cat = item.product.category || 'Other';
-        categoryTotals[cat] = (categoryTotals[cat] || 0) + item.quantity;
-        totalQty += item.quantity;
+        const qty = Number(item.quantity || 1);
+        categoryTotals[cat] = (categoryTotals[cat] || 0) + qty;
+        totalQty += qty;
       });
     });
 
@@ -257,7 +264,8 @@ export default function AdminPortal() {
   // Calculate Sales Trend coordinates
   const salesTrend = useMemo(() => {
     const trend = [];
-    const paidOrders = orders.filter(o => o.status !== 'Pending Payment' && o.status !== 'Cancelled');
+    const safeOrders = orders || [];
+    const paidOrders = safeOrders.filter(o => o && o.status !== 'Pending Payment' && o.status !== 'Cancelled');
 
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
@@ -266,8 +274,8 @@ export default function AdminPortal() {
 
       const keyDate = d.toISOString().split('T')[0];
       const salesForDay = paidOrders
-        .filter(o => o.date.startsWith(keyDate))
-        .reduce((sum, o) => sum + Number(o.totalAmount), 0);
+        .filter(o => o?.date && String(o.date).startsWith(keyDate))
+        .reduce((sum, o) => sum + Number(o?.totalAmount || 0), 0);
 
       trend.push({ date: dateStr, amount: salesForDay });
     }
@@ -277,45 +285,56 @@ export default function AdminPortal() {
 
   // Product Catalog filter
   const filteredProducts = useMemo(() => {
-    return products.filter(p =>
-      p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-      p.brand.toLowerCase().includes(productSearch.toLowerCase()) ||
-      p.category.toLowerCase().includes(productSearch.toLowerCase())
+    const query = (productSearch || '').toLowerCase();
+    return (products || []).filter(p =>
+      p && (
+        (p.name && String(p.name).toLowerCase().includes(query)) ||
+        (p.brand && String(p.brand).toLowerCase().includes(query)) ||
+        (p.category && String(p.category).toLowerCase().includes(query))
+      )
     );
   }, [products, productSearch]);
 
   // Order Logs filter
   const filteredOrders = useMemo(() => {
-    return orders.filter(o =>
-      o.id.toLowerCase().includes(orderSearch.toLowerCase()) ||
-      o.customerName.toLowerCase().includes(orderSearch.toLowerCase()) ||
-      o.phone.includes(orderSearch)
+    const query = (orderSearch || '').toLowerCase();
+    return (orders || []).filter(o =>
+      o && (
+        (o.id && String(o.id).toLowerCase().includes(query)) ||
+        (o.customerName && String(o.customerName).toLowerCase().includes(query)) ||
+        (o.phone && String(o.phone).includes(query))
+      )
     );
   }, [orders, orderSearch]);
 
   // User filter
   const filteredUsers = useMemo(() => {
+    const query = (userSearch || '').toLowerCase();
     return (users || []).filter(u =>
-      u.name.toLowerCase().includes(userSearch.toLowerCase()) ||
-      u.email.toLowerCase().includes(userSearch.toLowerCase()) ||
-      u.phone.includes(userSearch) ||
-      u.role.toLowerCase().includes(userSearch.toLowerCase())
+      u && (
+        (u.name && String(u.name).toLowerCase().includes(query)) ||
+        (u.email && String(u.email).toLowerCase().includes(query)) ||
+        (u.phone && String(u.phone).includes(query)) ||
+        (u.role && String(u.role).toLowerCase().includes(query))
+      )
     );
   }, [users, userSearch]);
 
   // Quotations filter
   const filteredQuotations = useMemo(() => {
+    const query = (quotationSearch || '').toLowerCase();
     return (quotations || []).filter(q => {
-      const query = quotationSearch.toLowerCase();
+      if (!q) return false;
       const matchesSearch =
-        q.id.toLowerCase().includes(query) ||
-        q.clientName.toLowerCase().includes(query) ||
-        (q.organization && q.organization.toLowerCase().includes(query)) ||
-        q.phone.includes(query);
+        (q.id && String(q.id).toLowerCase().includes(query)) ||
+        (q.clientName && String(q.clientName).toLowerCase().includes(query)) ||
+        (q.organization && String(q.organization).toLowerCase().includes(query)) ||
+        (q.phone && String(q.phone).includes(query));
       const matchesStatus = quotationStatusFilter === 'All' || q.status === quotationStatusFilter;
       return matchesSearch && matchesStatus;
     });
   }, [quotations, quotationSearch, quotationStatusFilter]);
+
 
   // Handle Product Form Submit
 

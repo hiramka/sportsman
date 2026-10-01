@@ -42,6 +42,7 @@ function AppContent() {
             <Route path="/" element={<CustomerPortal />} />
             <Route path="/tracker" element={<CustomerPortal />} />
             <Route path="/receipts" element={<CustomerPortal />} />
+            <Route path="/quotations" element={<CustomerPortal />} />
 
             {/* Lazy-Loaded Admin Dashboard */}
             <Route path="/admin" element={
