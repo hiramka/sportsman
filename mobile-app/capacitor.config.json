@@ -3,6 +3,7 @@
   "appName": "Sportsman.ke",
   "webDir": "www",
   "server": {
+    "url": "https://sportsmanke.vercel.app",
     "androidScheme": "https",
     "cleartext": true
   },
