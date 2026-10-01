@@ -544,16 +544,17 @@ export default function QuotationModal({ isOpen, onClose, initialData = null }) 
                 <option value="30">30 Days Validity</option>
               </select>
 
-              <div className="pt-2">
-                <label className="flex items-center gap-2 cursor-pointer text-slate-300 font-bold">
-                  <input
-                    type="checkbox"
-                    checked={includeVat}
-                    onChange={e => setIncludeVat(e.target.checked)}
-                    className="accent-orange-500 w-4 h-4 rounded"
-                  />
-                  <span>Include 16% VAT Tax Breakdown</span>
-                </label>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">VAT Tax Configuration</label>
+                <select
+                  value={vatMode}
+                  onChange={e => setVatMode(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none cursor-pointer text-xs font-bold"
+                >
+                  <option value="exclusive">16% Exclusive VAT (Added on Top)</option>
+                  <option value="inclusive">16% Inclusive VAT (Included in Prices)</option>
+                  <option value="exempt">0% Tax Exempt (Government / School)</option>
+                </select>
               </div>
 
               <div>
@@ -578,7 +579,7 @@ export default function QuotationModal({ isOpen, onClose, initialData = null }) 
                 </div>
                 <div className="flex justify-between">
                   <span>16% VAT:</span>
-                  <span className="font-bold text-slate-400">{includeVat ? `KES ${calculations.vatAmount.toLocaleString()}` : '0% Exempt'}</span>
+                  <span className="font-bold text-slate-400">{calculations.vatMode !== 'exempt' ? `KES ${calculations.vatAmount.toLocaleString()}` : '0% Exempt'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Shipping Fee:</span>
