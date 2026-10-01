@@ -26,6 +26,10 @@ export default function QuotationModal({ isOpen, onClose, initialData = null }) 
   const [vatMode, setVatMode] = useState('exclusive'); // 'exclusive' | 'inclusive' | 'exempt'
   const [shippingFee, setShippingFee] = useState('1500');
   const [terms, setTerms] = useState('50% deposit upon order placement. Balance payable on delivery. Prices include 16% VAT.');
+  const [bankName, setBankName] = useState('KCB Bank Kenya Ltd');
+  const [accountName, setAccountName] = useState('Sportsman Kenya Enterprises');
+  const [accountNumber, setAccountNumber] = useState('1100223344');
+  const [mpesaTill, setMpesaTill] = useState('123456 (Sportsman.ke)');
 
   // Quotation Items state
   const [itemSourceMode, setItemSourceMode] = useState('catalogue'); // 'catalogue' | 'custom'
@@ -167,6 +171,10 @@ export default function QuotationModal({ isOpen, onClose, initialData = null }) 
       shippingFee: calculations.shipping,
       grandTotal: calculations.grandTotal,
       terms,
+      bankName,
+      accountName,
+      accountNumber,
+      mpesaTill,
       status: 'Sent'
     };
 
@@ -580,6 +588,53 @@ export default function QuotationModal({ isOpen, onClose, initialData = null }) 
                   <span>Grand Total:</span>
                   <span>KES {calculations.grandTotal.toLocaleString()}</span>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Custom Bank & Payment Instructions Section */}
+          <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl space-y-3 text-left">
+            <h4 className="text-[10px] font-black uppercase tracking-wider text-orange-400 m-0">🏦 Payment Details & Bank Info (Printed on Invoice)</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[9px] font-bold uppercase text-slate-400 mb-1">Bank Name</label>
+                <input
+                  type="text"
+                  value={bankName}
+                  onChange={e => setBankName(e.target.value)}
+                  placeholder="e.g. KCB Bank Kenya Ltd"
+                  className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs font-bold focus:outline-none focus:border-orange-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] font-bold uppercase text-slate-400 mb-1">Account Name</label>
+                <input
+                  type="text"
+                  value={accountName}
+                  onChange={e => setAccountName(e.target.value)}
+                  placeholder="e.g. Sportsman Kenya Enterprises"
+                  className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs font-bold focus:outline-none focus:border-orange-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] font-bold uppercase text-slate-400 mb-1">Account Number</label>
+                <input
+                  type="text"
+                  value={accountNumber}
+                  onChange={e => setAccountNumber(e.target.value)}
+                  placeholder="e.g. 1100223344"
+                  className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs font-bold focus:outline-none focus:border-orange-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] font-bold uppercase text-slate-400 mb-1">M-Pesa Till / Paybill</label>
+                <input
+                  type="text"
+                  value={mpesaTill}
+                  onChange={e => setMpesaTill(e.target.value)}
+                  placeholder="e.g. 123456 (Sportsman.ke)"
+                  className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs font-bold focus:outline-none focus:border-orange-500"
+                />
               </div>
             </div>
           </div>

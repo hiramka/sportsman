@@ -319,12 +319,12 @@ export const printQuotation = (quotation) => {
           <!-- Payment Terms & Sign off -->
           <div class="payment-terms-grid">
             <div class="pay-box">
-              <div class="pay-title">Payment Instructions</div>
-              <div style="margin-bottom: 4px;"><strong>M-Pesa Buy Goods Till:</strong> 123456 (Sportsman.ke)</div>
-              <div style="margin-bottom: 4px;"><strong>Bank Name:</strong> KCB Bank Kenya Ltd</div>
-              <div style="margin-bottom: 4px;"><strong>Account Name:</strong> Sportsman Kenya Enterprises</div>
-              <div><strong>Account Number:</strong> 1100223344</div>
-              ${quotation.terms ? `<div style="margin-top: 10px; font-style: italic; color: #475569;">"${quotation.terms}"</div>` : ''}
+              <div class="pay-title">Payment Instructions & Details</div>
+              <div style="margin-bottom: 4px;"><strong>M-Pesa Till / Paybill:</strong> ${quotation.mpesaTill || '123456 (Sportsman.ke)'}</div>
+              <div style="margin-bottom: 4px;"><strong>Bank Name:</strong> ${quotation.bankName || 'KCB Bank Kenya Ltd'}</div>
+              <div style="margin-bottom: 4px;"><strong>Account Name:</strong> ${quotation.accountName || 'Sportsman Kenya Enterprises'}</div>
+              <div style="margin-bottom: 4px;"><strong>Account Number:</strong> ${quotation.accountNumber || '1100223344'}</div>
+              ${quotation.terms ? `<div style="margin-top: 10px; font-style: italic; color: #475569; font-weight: 500;">"${quotation.terms}"</div>` : ''}
             </div>
 
             <div class="stamp-box">
