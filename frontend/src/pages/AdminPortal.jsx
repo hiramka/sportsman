@@ -146,7 +146,7 @@ export default function AdminPortal() {
   const [uploadError, setUploadError] = useState('');
 
   const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
@@ -158,7 +158,7 @@ export default function AdminPortal() {
     setUploading(true);
 
     try {
-      // Convert to static Data URL as reliable local asset
+      // 1. Convert to static Data URL as primary local asset (works 100% offline & online)
       const reader = new FileReader();
       reader.onloadend = () => {
         const staticDataUrl = reader.result;
@@ -166,30 +166,32 @@ export default function AdminPortal() {
         setUploading(false);
       };
       reader.onerror = () => {
-        throw new Error('Could not read image file.');
+        setUploadError('Could not read image file.');
+        setUploading(false);
       };
       reader.readAsDataURL(file);
 
-      // Also attempt backend upload if server is active
-      const formData = new FormData();
-      formData.append('image', file);
-      const token = sessionStorage.getItem('sm_token_admin');
-      fetch(`${API_BASE}/products/upload-image`, {
-        method: 'POST',
-        headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
-        body: formData,
-        credentials: 'include',
-      }).then(async response => {
-        if (response.ok) {
-          const data = await response.json();
-          const host = API_BASE.replace('/api', '');
-          setProductForm(prev => ({ ...prev, imageUrl: `${host}${data.imageUrl}` }));
-        }
-      }).catch(err => {
-        console.warn('Backend image upload fallback to local static data URL.', err);
-      });
+      // 2. Safely attempt backend upload only if an admin JWT token exists
+      const token = sessionStorage.getItem('sm_token_admin') || sessionStorage.getItem('sm_token');
+      if (token) {
+        const formData = new FormData();
+        formData.append('image', file);
+        fetch(`${API_BASE}/products/upload-image`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData,
+          credentials: 'include',
+        }).then(async response => {
+          if (response.ok) {
+            const data = await response.json();
+            const host = API_BASE.replace('/api', '');
+            setProductForm(prev => ({ ...prev, imageUrl: `${host}${data.imageUrl}` }));
+          }
+        }).catch(err => {
+          console.warn('Backend image upload fallback to local static data URL.', err);
+        });
+      }
     } catch (err) {
-      setUploadError(err.message || 'Image upload failed.');
       setUploading(false);
     }
   };

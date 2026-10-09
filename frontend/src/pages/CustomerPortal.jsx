@@ -1462,8 +1462,20 @@ export default function CustomerPortal() {
             <button onClick={() => setIsPrivacyOpen(true)} className="hover:text-slate-300 cursor-pointer font-bold bg-transparent border-none">Privacy Policy</button>
             <button onClick={() => setIsSupportOpen(true)} className="hover:text-slate-300 cursor-pointer font-bold bg-transparent border-none">Customer Support</button>
           </div>
-          <div>
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 text-slate-400 text-xs">
             <span>&copy; {new Date().getFullYear()} Sportsman.ke. All Rights Reserved.</span>
+            <span className="hidden sm:inline text-slate-700">&bull;</span>
+            <span className="inline-flex items-center gap-1 text-slate-400">
+              Designed, Engineered &amp; Copyrighted by{' '}
+              <a
+                href="https://hiramk.vercel.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-orange-400 hover:text-orange-300 font-bold transition-colors underline decoration-orange-500/40 underline-offset-2 hover:decoration-orange-400"
+              >
+                Hiram
+              </a>
+            </span>
           </div>
         </div>
       </footer>

@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  # Backend NestJS Microservice
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sportsman_backend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    env_file:
+      - ./backend/.env
+
+  # Frontend Vite/React Web App
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sportsman_frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend

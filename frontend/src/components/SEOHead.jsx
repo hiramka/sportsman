@@ -15,6 +15,10 @@ export default function SEOHead({
   jsonLd = null
 }) {
   useEffect(() => {
+    // Detect dev/staging subdomain to protect unified domain authority on sportsman.ke
+    const isDevSubdomain = typeof window !== 'undefined' &&
+      (window.location.hostname.startsWith('dev.') || window.location.hostname.includes('localhost'));
+
     // 1. Update Document Title
     document.title = title;
 
@@ -34,12 +38,23 @@ export default function SEOHead({
     updateMetaTag('name', 'keywords', keywords);
     updateMetaTag('name', 'title', title);
 
+    // Prevent search engine duplicate content indexing on dev environments to maintain 100% domain authority
+    if (typeof window !== 'undefined' && window.location.hostname.startsWith('dev.')) {
+      updateMetaTag('name', 'robots', 'noindex, follow');
+    } else {
+      updateMetaTag('name', 'robots', 'index, follow');
+    }
+
     // 3. OpenGraph (Facebook, WhatsApp, LinkedIn) Meta Tags
+    const defaultDomain = typeof window !== 'undefined' && window.location.origin.includes('vercel.app')
+      ? 'https://sportsmanke.vercel.app'
+      : 'https://sportsman.ke';
+    const primaryCanonicalUrl = (canonical || defaultDomain).replace(/^https?:\/\/dev\./, 'https://');
     updateMetaTag('property', 'og:title', title);
     updateMetaTag('property', 'og:description', description);
     updateMetaTag('property', 'og:image', ogImage);
     updateMetaTag('property', 'og:type', ogType);
-    updateMetaTag('property', 'og:url', canonical || window.location.href);
+    updateMetaTag('property', 'og:url', primaryCanonicalUrl);
     updateMetaTag('property', 'og:site_name', 'Sportsman.ke');
 
     // 4. Twitter Card Meta Tags
@@ -48,14 +63,14 @@ export default function SEOHead({
     updateMetaTag('name', 'twitter:image', ogImage);
     updateMetaTag('name', 'twitter:card', 'summary_large_image');
 
-    // 5. Canonical Link
+    // 5. Canonical Link (Always point to main domain https://sportsman.ke for unified domain authority)
     let canonicalLink = document.querySelector('link[rel="canonical"]');
     if (!canonicalLink) {
       canonicalLink = document.createElement('link');
       canonicalLink.setAttribute('rel', 'canonical');
       document.head.appendChild(canonicalLink);
     }
-    canonicalLink.setAttribute('href', canonical || window.location.href);
+    canonicalLink.setAttribute('href', primaryCanonicalUrl);
 
     // 6. JSON-LD Dynamic Structured Data
     let scriptLd = document.getElementById('dynamic-jsonld-schema');

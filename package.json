@@ -11,7 +11,10 @@
     "build:frontend": "npm run build --prefix frontend",
     "build:backend": "npm run build --prefix backend",
     "build": "npm run build:frontend && npm run build:backend",
-    "sync:mobile": "npm run build:frontend && node mobile-app/sync-dist.js"
+    "sync:mobile": "npm run build:frontend && node mobile-app/sync-dist.js",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
