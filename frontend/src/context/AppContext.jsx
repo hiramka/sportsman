@@ -170,7 +170,16 @@ export const AppProvider = ({ children }) => {
     }
   }, [user]);
 
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState(() => {
+    const saved = localStorage.getItem('sm_products');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return DEFAULT_PRODUCTS;
+  });
   const [users, setUsers] = useState([]);
   const [cart, setCart] = useState(() => {
     const saved = localStorage.getItem('sm_cart');
@@ -210,14 +219,29 @@ export const AppProvider = ({ children }) => {
       const res = await fetch(`${API_BASE}/products`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
-        setProducts(data);
-      } else {
-        setProducts(DEFAULT_PRODUCTS);
+        if (Array.isArray(data) && data.length > 0) {
+          setProducts(data);
+          try {
+            localStorage.setItem('sm_products', JSON.stringify(data));
+          } catch (e) {}
+          return;
+        }
       }
     } catch (err) {
-      console.warn('Backend server down. Falling back to Sandbox memory catalog.', err);
-      setProducts(DEFAULT_PRODUCTS);
+      console.warn('Backend server down. Retaining cached catalog.', err);
     }
+    // Fallback: check localStorage, otherwise DEFAULT_PRODUCTS
+    const saved = localStorage.getItem('sm_products');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setProducts(parsed);
+          return;
+        }
+      } catch (e) {}
+    }
+    setProducts(DEFAULT_PRODUCTS);
   };
 
   // 2. Fetch coupons from NestJS server with fallback
@@ -833,10 +857,20 @@ export const AppProvider = ({ children }) => {
         throw new Error(errorData.message || 'Product creation failed.');
       }
 
+      const created = await res.json().catch(() => null);
+      if (created) {
+        setProducts(prev => {
+          const next = [created, ...prev.filter(p => p.id !== created.id)];
+          try { localStorage.setItem('sm_products', JSON.stringify(next)); } catch (e) {}
+          return next;
+        });
+      }
       await fetchProducts();
       addNotification('success', `Product "${newProd.name}" added to inventory`);
+      return { success: true, product: created };
     } catch (err) {
       addNotification('error', err.message || 'Gated Action Denied.');
+      throw err;
     }
   };
 
@@ -861,10 +895,20 @@ export const AppProvider = ({ children }) => {
         throw new Error(errorData.message || 'Product modification failed.');
       }
 
+      const saved = await res.json().catch(() => null);
+      if (saved) {
+        setProducts(prev => {
+          const next = prev.map(p => p.id === saved.id ? saved : p);
+          try { localStorage.setItem('sm_products', JSON.stringify(next)); } catch (e) {}
+          return next;
+        });
+      }
       await fetchProducts();
       addNotification('info', `Product "${updatedProd.name}" updated successfully`);
+      return { success: true, product: saved };
     } catch (err) {
       addNotification('error', err.message || 'Gated Action Denied.');
+      throw err;
     }
   };
 
@@ -888,10 +932,17 @@ export const AppProvider = ({ children }) => {
         throw new Error(errorData.message || 'Product removal failed.');
       }
 
+      setProducts(prev => {
+        const next = prev.filter(p => p.id !== productId);
+        try { localStorage.setItem('sm_products', JSON.stringify(next)); } catch (e) {}
+        return next;
+      });
       await fetchProducts();
       addNotification('warning', `Product removed from catalogue`);
+      return { success: true };
     } catch (err) {
       addNotification('error', err.message || 'Gated Action Denied.');
+      throw err;
     }
   };
 

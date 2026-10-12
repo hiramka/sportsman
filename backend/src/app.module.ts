@@ -130,8 +130,18 @@ export class AppModule implements OnModuleInit {
   async onModuleInit() {
     console.log('🌱 Seeding database with baseline mock data...');
 
-    // Migration routine for legacy roles
+    // Migration routine for legacy roles & dynamic schema columns
     try {
+      const isPostgres = this.entityManager.connection.options.type === 'postgres';
+      if (isPostgres) {
+        await this.entityManager.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS sizes text DEFAULT '["Standard"]'`);
+        await this.entityManager.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS county character varying`);
+        await this.entityManager.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS "shippingFee" double precision DEFAULT 0`);
+        await this.entityManager.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS "exchangeRequestJson" text`);
+        await this.entityManager.query(`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS "selectedSize" character varying DEFAULT 'Standard'`);
+        await this.entityManager.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS "resetPasswordToken" character varying`);
+        await this.entityManager.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS "resetPasswordExpires" character varying`);
+      }
       await this.entityManager.createQueryBuilder()
         .update(User)
         .set({ role: 'warehouse_staff' })
@@ -144,7 +154,7 @@ export class AppModule implements OnModuleInit {
         .execute();
       console.log('✓ Legacy database roles and pending user verifications updated successfully.');
     } catch (err) {
-      console.warn('Failed to run role migration query:', err.message);
+      console.warn('Failed to run schema/role migration query:', err.message);
     }
 
     // 1. Seed Users (Admin, Warehouse, Delivery, Customer)

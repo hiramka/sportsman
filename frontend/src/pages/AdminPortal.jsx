@@ -147,7 +147,8 @@ export default function AdminPortal() {
     reorderThreshold: '3',
     brand: '',
     imageUrl: '',
-    warehouseLocation: ''
+    warehouseLocation: '',
+    sizes: ''
   });
 
   // Image Uploading States & Handler
@@ -414,7 +415,7 @@ export default function AdminPortal() {
 
   // Handle Product Form Submit
 
-  const handleProductSubmit = (e) => {
+  const handleProductSubmit = async (e) => {
     e.preventDefault();
     if (!productForm.name || !productForm.price || !productForm.stockQuantity || !productForm.brand) {
       alert('Please fill in required fields.');
@@ -422,32 +423,60 @@ export default function AdminPortal() {
     }
 
     const defaultImg = productForm.imageUrl || 'https://images.unsplash.com/photo-1517649763962-0c623066013b?w=500&auto=format&fit=crop&q=60';
-    const submission = { ...productForm, imageUrl: defaultImg };
-
-    if (editingProduct) {
-      updateProduct({ ...submission, id: editingProduct.id });
-    } else {
-      addProduct(submission);
+    let formattedSizes = ['Standard'];
+    if (productForm.sizes) {
+      if (typeof productForm.sizes === 'string') {
+        try {
+          const parsed = JSON.parse(productForm.sizes);
+          if (Array.isArray(parsed)) formattedSizes = parsed;
+          else formattedSizes = productForm.sizes.split(',').map(s => s.trim()).filter(Boolean);
+        } catch {
+          formattedSizes = productForm.sizes.split(',').map(s => s.trim()).filter(Boolean);
+        }
+      } else if (Array.isArray(productForm.sizes)) {
+        formattedSizes = productForm.sizes;
+      }
     }
+    const submission = { ...productForm, imageUrl: defaultImg, sizes: JSON.stringify(formattedSizes) };
 
-    setIsProductModalOpen(false);
-    setEditingProduct(null);
-    setProductForm({
-      name: '',
-      category: 'Football',
-      description: '',
-      price: '',
-      stockQuantity: '',
-      reorderThreshold: '3',
-      brand: '',
-      imageUrl: '',
-      warehouseLocation: ''
-    });
+    try {
+      if (editingProduct) {
+        await updateProduct({ ...submission, id: editingProduct.id });
+      } else {
+        await addProduct(submission);
+      }
+
+      setIsProductModalOpen(false);
+      setEditingProduct(null);
+      setProductForm({
+        name: '',
+        category: 'Football',
+        description: '',
+        price: '',
+        stockQuantity: '',
+        reorderThreshold: '3',
+        brand: '',
+        imageUrl: '',
+        warehouseLocation: '',
+        sizes: ''
+      });
+    } catch (err) {
+      console.error('Failed to save product:', err);
+    }
   };
 
   // Trigger Edit Mode
   const startEditProduct = (prod) => {
     setEditingProduct(prod);
+    let sizeStr = '';
+    if (prod.sizes) {
+      try {
+        const parsed = typeof prod.sizes === 'string' ? JSON.parse(prod.sizes) : prod.sizes;
+        sizeStr = Array.isArray(parsed) ? parsed.join(', ') : String(parsed);
+      } catch {
+        sizeStr = String(prod.sizes);
+      }
+    }
     setProductForm({
       name: prod.name,
       category: prod.category,
@@ -457,7 +486,8 @@ export default function AdminPortal() {
       reorderThreshold: prod.reorderThreshold.toString(),
       brand: prod.brand,
       imageUrl: prod.imageUrl,
-      warehouseLocation: prod.warehouseLocation
+      warehouseLocation: prod.warehouseLocation,
+      sizes: sizeStr
     });
     setIsProductModalOpen(true);
   };
@@ -1694,18 +1724,30 @@ export default function AdminPortal() {
                     </div>
                   </div>
 
-                  {/* Category Selection */}
-                  <div>
-                    <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Category</label>
-                    <select
-                      value={productForm.category}
-                      onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-800 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
-                    >
-                      {['Football', 'Basketball', 'Jerseys', 'Boots', 'Table Tennis'].map(cat => (
-                        <option key={cat} value={cat} className="bg-slate-900">{cat}</option>
-                      ))}
-                    </select>
+                  {/* Category Selection & Available Sizes */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Category</label>
+                      <select
+                        value={productForm.category}
+                        onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-800 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+                      >
+                        {['Football', 'Basketball', 'Jerseys', 'Boots', 'Table Tennis'].map(cat => (
+                          <option key={cat} value={cat} className="bg-slate-900">{cat}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Available Sizes (Comma-separated)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. UK 7, UK 8, UK 9 or S, M, L"
+                        value={productForm.sizes}
+                        onChange={(e) => setProductForm({ ...productForm, sizes: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-800 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 rounded-xl px-3 py-2 text-xs text-white"
+                      />
+                    </div>
                   </div>
 
                   {/* Price, Stock and Reorder limits */}
