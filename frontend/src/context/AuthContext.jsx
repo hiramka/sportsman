@@ -238,9 +238,26 @@ export const AuthProvider = ({ children }) => {
 
       if (res.ok) {
         const data = await parseJsonOrText(res);
+        if (data && data.user) {
+          setUser(data.user);
+          setIsAuthenticated(true);
+          localStorage.setItem('sm_current_user', JSON.stringify(data.user));
+          if (data.token) {
+            sessionStorage.setItem('sm_token', data.token);
+            sessionStorage.setItem(`sm_token_${data.user.role}`, data.token);
+            localStorage.setItem('sm_token', data.token);
+            localStorage.setItem(`sm_token_${data.user.role}`, data.token);
+          }
+        }
         return data || { message: 'Registration successful.' };
+      } else {
+        const errorData = await parseJsonOrText(res);
+        throw new Error(errorData?.message || 'Registration failed.');
       }
     } catch (err) {
+      if (err.message && err.message !== 'Failed to fetch') {
+        throw err;
+      }
       console.warn('Backend signup network error, using local registration fallback:', err);
     }
 
@@ -257,8 +274,11 @@ export const AuthProvider = ({ children }) => {
     const localUsers = savedUsersStr ? JSON.parse(savedUsersStr) : [];
     localUsers.push(newUser);
     localStorage.setItem('sm_users', JSON.stringify(localUsers));
+    setUser(newUser);
+    setIsAuthenticated(true);
+    localStorage.setItem('sm_current_user', JSON.stringify(newUser));
 
-    return { message: 'Account created successfully! You can now log in.' };
+    return { message: 'Account created successfully! Welcome to Sportsman.ke.', user: newUser };
   };
 
   const logout = async () => {

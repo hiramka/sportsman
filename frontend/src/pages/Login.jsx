@@ -26,13 +26,8 @@ export default function Login() {
 
     try {
       if (mode === 'signup') {
-        const result = await signup(name.trim(), email.trim(), phone.trim(), password);
-        setSuccessMessage(result.message || 'Registration successful. Please verify your email before signing in.');
-        setMode('login');
-        setName('');
-        setPhone('');
-        setEmail('');
-        setPassword('');
+        await signup(name.trim(), email.trim(), phone.trim(), password);
+        navigate('/');
       } else if (mode === 'login') {
         const user = await login(email.trim(), password);
         switch (user.role) {

@@ -27,35 +27,31 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const verificationToken = crypto.randomBytes(32).toString('hex');
     
+    // Customers are auto-verified by default so they can sign up and shop freely!
     const user = this.userRepository.create({
       name,
       email,
       phone,
       passwordHash,
       role: 'customer', // Force all public signups to 'customer' role
-      isVerified: false,
-      verificationToken,
+      isVerified: true,
+      verificationToken: null,
       createdAt: new Date().toISOString()
     });
 
     const savedUser = await this.userRepository.save(user);
     
-    // Send verification email using MailService (falls back to simulation log if not configured)
-    const emailSent = await this.mailService.sendVerificationEmail(email, name, verificationToken);
+    // Background welcome email notification (non-blocking)
+    try {
+      this.mailService.sendVerificationEmail(email, name, 'welcome').catch(() => {});
+    } catch (e) {}
 
-    // If SMTP is not active or email fails to send, auto-verify account so user can sign in immediately
-    if (!emailSent) {
-      savedUser.isVerified = true;
-      savedUser.verificationToken = null;
-      await this.userRepository.save(savedUser);
-    }
+    const token = this.generateToken(savedUser);
 
     return {
-      message: emailSent
-        ? 'Registration successful. Please check your email inbox to verify your account.'
-        : 'Registration successful. Account activated! You can now sign in.',
+      message: 'Registration successful! Welcome to Sportsman.ke.',
+      token,
       user: {
         id: savedUser.id,
         name: savedUser.name,
@@ -79,9 +75,12 @@ export class AuthService {
       throw new UnauthorizedException('Invalid login credentials.');
     }
 
-    // Verify email status before allowing login
-    if (!user.isVerified) {
-      throw new UnauthorizedException('Please verify your email before signing in.');
+    // Auto-verify customer accounts so customers are never blocked from shopping
+    if (!user.isVerified && user.role === 'customer') {
+      user.isVerified = true;
+      await this.userRepository.save(user);
+    } else if (!user.isVerified) {
+      throw new UnauthorizedException('Please verify your staff email credentials before signing in.');
     }
 
     const token = this.generateToken(user);
