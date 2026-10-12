@@ -743,41 +743,49 @@ export default function CustomerPortal() {
               </div>
 
               {/* Visual Mock Banner Side Card */}
-              <div className="flex-1 w-full max-w-sm md:max-w-none flex justify-center">
-                <div className="w-full max-w-[340px] p-6 rounded-3xl glass-panel relative shadow-glow-orange border-slate-800/60 overflow-hidden">
-                  <div className="absolute top-0 right-0 bg-orange-500 text-white text-[9px] font-black uppercase px-3 py-1 rounded-bl-xl tracking-wider">
-                    HOT SALE
-                  </div>
-                  <div className="h-44 rounded-2xl bg-slate-950 overflow-hidden relative mb-4">
-                    <img
-                      src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&auto=format&fit=crop&q=60"
-                      className="w-full h-full object-cover object-center transform hover:scale-110 transition-transform duration-500"
-                      alt="Hot Boot"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[10px] text-orange-500 uppercase tracking-widest font-extrabold">BOOTS</span>
-                    <div className="flex items-center gap-1">
-                      <Award className="w-3.5 h-3.5 text-cyan-400" />
-                      <span className="text-[10px] text-cyan-400 uppercase font-black">Best Seller</span>
+              {(() => {
+                const hotProduct = products.find(p => p.id === 'prod-4') || products[0];
+                if (!hotProduct) return null;
+                const origPrice = Math.round((hotProduct.price || 5000) * 1.25);
+                return (
+                  <div className="flex-1 w-full max-w-sm md:max-w-none flex justify-center">
+                    <div className="w-full max-w-[340px] p-6 rounded-3xl glass-panel relative shadow-glow-orange border-slate-800/60 overflow-hidden">
+                      <div className="absolute top-0 right-0 bg-orange-500 text-white text-[9px] font-black uppercase px-3 py-1 rounded-bl-xl tracking-wider">
+                        HOT SALE
+                      </div>
+                      <div className="h-44 rounded-2xl bg-slate-950 overflow-hidden relative mb-4">
+                        <img
+                          src={hotProduct.imageUrl || '/logo.png'}
+                          className="w-full h-full object-cover object-center transform hover:scale-110 transition-transform duration-500"
+                          alt={hotProduct.name}
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = '/logo.png';
+                          }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] text-orange-500 uppercase tracking-widest font-extrabold">{hotProduct.category || 'FEATURED'}</span>
+                        <div className="flex items-center gap-1">
+                          <Award className="w-3.5 h-3.5 text-cyan-400" />
+                          <span className="text-[10px] text-cyan-400 uppercase font-black">Best Seller</span>
+                        </div>
+                      </div>
+                      <h3 className="text-base font-extrabold text-white mb-1 leading-tight">{hotProduct.name}</h3>
+                      <div className="flex items-baseline gap-2 mb-4">
+                        <span className="text-lg font-black text-white">KES {Number(hotProduct.price || 0).toLocaleString()}</span>
+                        <span className="text-xs text-slate-500 line-through">KES {origPrice.toLocaleString()}</span>
+                      </div>
+                      <button
+                        onClick={() => addToCart(hotProduct, 1)}
+                        className="w-full py-2.5 bg-slate-900 border border-slate-800 hover:border-orange-500 hover:bg-orange-500 hover:text-white rounded-xl text-xs font-black transition-all duration-300 cursor-pointer"
+                      >
+                        Quick Add to Cart
+                      </button>
                     </div>
                   </div>
-                  <h3 className="text-base font-extrabold text-white mb-1 leading-tight">Speedster Football Boots FG</h3>
-                  <div className="flex items-baseline gap-2 mb-4">
-                    <span className="text-lg font-black text-white">KES 6,800</span>
-                    <span className="text-xs text-slate-500 line-through">KES 8,500</span>
-                  </div>
-                  <button
-                    onClick={() => {
-                      const boot = products.find(p => p.id === 'prod-4');
-                      if (boot) addToCart(boot, 1);
-                    }}
-                    className="w-full py-2.5 bg-slate-900 border border-slate-800 hover:border-orange-500 hover:bg-orange-500 hover:text-white rounded-xl text-xs font-black transition-all duration-300 cursor-pointer"
-                  >
-                    Quick Add to Cart
-                  </button>
-                </div>
-              </div>
+                );
+              })()}
             </div>
           </section>
 
@@ -931,7 +939,7 @@ export default function CustomerPortal() {
                               loading="lazy"
                               onError={(e) => {
                                 e.target.onerror = null;
-                                e.target.src = 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&auto=format&fit=crop&q=60';
+                                e.target.src = '/logo.png';
                               }}
                             />
 
