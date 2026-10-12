@@ -67,11 +67,29 @@ export default function AdminPortal() {
   const [quotationSearch, setQuotationSearch] = useState('');
   const [quotationStatusFilter, setQuotationStatusFilter] = useState('All');
 
+  // All standard and requested store categories
+  const STANDARD_CATEGORIES = [
+    'Football',
+    'Basketball',
+    'Jerseys',
+    'Boots',
+    'Table Tennis',
+    'Lawn Tennis',
+    'Badminton',
+    'Rugby',
+    'Netball',
+    'Volleyball',
+    'Accessories',
+    'Hiking Glasses',
+    'Running Glasses',
+    'Training Equipment',
+    'Handball'
+  ];
+
   // Compute all available categories from active catalog products plus standards
   const availableCategories = useMemo(() => {
-    const base = ['Football', 'Basketball', 'Jerseys', 'Boots', 'Table Tennis', 'Rugby', 'Athletics', 'Swimming', 'Fitness', 'Accessories'];
     const dynamic = (products || []).map(p => p.category).filter(Boolean);
-    return Array.from(new Set([...base, ...dynamic]));
+    return Array.from(new Set([...STANDARD_CATEGORIES, ...dynamic]));
   }, [products]);
 
   // CSV Export Filter State
@@ -1938,14 +1956,20 @@ export default function AdminPortal() {
                       </div>
 
                       {/* Image quick presets */}
-                      <div className="mt-2.5 flex items-center gap-1">
+                      <div className="mt-2.5 flex items-center gap-1 flex-wrap">
                         <span className="text-[8px] text-slate-400 font-bold">Presets:</span>
                         {[
-                          { name: '⚽ Ball', url: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=500&auto=format&fit=crop&q=60' },
-                          { name: '🏀 Hoop', url: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=500&auto=format&fit=crop&q=60' },
-                          { name: '👕 Shirt', url: 'https://images.unsplash.com/photo-1577223625816-7546f13df25d?w=500&auto=format&fit=crop&q=60' },
+                          { name: '⚽ Football', url: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=500&auto=format&fit=crop&q=60' },
+                          { name: '🏀 Basketball', url: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=500&auto=format&fit=crop&q=60' },
+                          { name: '👕 Jersey', url: 'https://images.unsplash.com/photo-1577223625816-7546f13df25d?w=500&auto=format&fit=crop&q=60' },
                           { name: '👟 Boot', url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&auto=format&fit=crop&q=60' },
-                          { name: '🏓 Paddle', url: 'https://images.unsplash.com/photo-1511067007398-7e4b90cfa4bc?w=500&auto=format&fit=crop&q=60' }
+                          { name: '🏓 Table Tennis', url: 'https://images.unsplash.com/photo-1511067007398-7e4b90cfa4bc?w=500&auto=format&fit=crop&q=60' },
+                          { name: '🎾 Tennis', url: 'https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?w=500&auto=format&fit=crop&q=60' },
+                          { name: '🏸 Badminton', url: 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=500&auto=format&fit=crop&q=60' },
+                          { name: '🏉 Rugby', url: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=500&auto=format&fit=crop&q=60' },
+                          { name: '🏐 Volleyball', url: 'https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=500&auto=format&fit=crop&q=60' },
+                          { name: '🕶️ Glasses', url: 'https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=500&auto=format&fit=crop&q=60' },
+                          { name: '🏋️ Training', url: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=500&auto=format&fit=crop&q=60' }
                         ].map(preset => (
                           <button
                             type="button"
