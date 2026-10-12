@@ -43,8 +43,8 @@ export class ProductController {
   @UseInterceptors(
     FileInterceptor('image', {
       fileFilter: (req, file, callback) => {
-        if (!file.mimetype.match(/\/(png)$/)) {
-          return callback(new BadRequestException('Access Denied: Only PNG files are allowed!'), false);
+        if (!file.mimetype.match(/\/(png|jpg|jpeg|webp|gif|svg\+xml)$/i)) {
+          return callback(new BadRequestException('Invalid image format. Supported formats: PNG, JPG, WEBP, GIF, SVG.'), false);
         }
         callback(null, true);
       },

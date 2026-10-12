@@ -172,7 +172,11 @@ export default function AdminPortal() {
       reader.readAsDataURL(file);
 
       // 2. Safely attempt backend upload only if an admin JWT token exists
-      const token = sessionStorage.getItem('sm_token_admin') || sessionStorage.getItem('sm_token');
+      const token =
+        sessionStorage.getItem('sm_token_admin') ||
+        sessionStorage.getItem('sm_token') ||
+        localStorage.getItem('sm_token_admin') ||
+        localStorage.getItem('sm_token');
       if (token) {
         const formData = new FormData();
         formData.append('image', file);
@@ -185,7 +189,8 @@ export default function AdminPortal() {
           if (response.ok) {
             const data = await response.json();
             const host = API_BASE.replace('/api', '');
-            setProductForm(prev => ({ ...prev, imageUrl: `${host}${data.imageUrl}` }));
+            const finalUrl = data.imageUrl?.startsWith('http') ? data.imageUrl : `${host}${data.imageUrl}`;
+            setProductForm(prev => ({ ...prev, imageUrl: finalUrl }));
           }
         }).catch(err => {
           console.warn('Backend image upload fallback to local static data URL.', err);
@@ -1589,7 +1594,7 @@ export default function AdminPortal() {
                         <div className="relative">
                           <input
                             type="file"
-                            accept="image/png"
+                            accept="image/*"
                             id="product-image-file"
                             onChange={handleImageUpload}
                             className="hidden"
@@ -1598,7 +1603,7 @@ export default function AdminPortal() {
                             htmlFor="product-image-file"
                             className="w-full flex items-center justify-center gap-2 bg-slate-900 border border-slate-800 hover:border-cyan-500 rounded-xl px-4 py-2.5 text-xs text-slate-300 hover:text-white cursor-pointer font-bold transition-all text-center select-none"
                           >
-                            {uploading ? 'Uploading image...' : 'Select PNG Image File'}
+                            {uploading ? 'Processing Image...' : '📁 Upload Photo / Screenshot'}
                           </label>
                         </div>
 

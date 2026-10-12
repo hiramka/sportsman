@@ -16,11 +16,11 @@ export class AuthController {
     const result = await this.authService.signup(signupDto);
     
     if ((result as any).token) {
-      // Set HTTP-only SameSite=Strict cookie for secure JWT transport
+      const isProd = process.env.NODE_ENV === 'production';
       response.cookie('sm_token', (result as any).token, {
         httpOnly: true,
-        secure: false, // In production, this should be true (requires HTTPS)
-        sameSite: 'strict',
+        secure: isProd,
+        sameSite: isProd ? 'none' : 'lax',
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
         path: '/'
       });
@@ -67,11 +67,11 @@ export class AuthController {
   ) {
     const result = await this.authService.login(loginDto);
     
-    // Set HTTP-only SameSite=Strict cookie for secure JWT transport
+    const isProd = process.env.NODE_ENV === 'production';
     response.cookie('sm_token', result.token, {
       httpOnly: true,
-      secure: false, // In production, this should be true (requires HTTPS)
-      sameSite: 'strict',
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       path: '/'
     });
@@ -121,10 +121,11 @@ export class AuthController {
 
   @Post('logout')
   async logout(@Res({ passthrough: true }) response: Response) {
+    const isProd = process.env.NODE_ENV === 'production';
     response.clearCookie('sm_token', {
       httpOnly: true,
-      secure: false,
-      sameSite: 'strict',
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
       path: '/'
     });
     return { success: true, message: 'Logged out successfully.' };

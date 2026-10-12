@@ -185,7 +185,11 @@ export const AppProvider = ({ children }) => {
   // Helper to fetch authorization headers for gated endpoints
   const getAuthHeaders = (targetRole = null) => {
     const activeRole = targetRole || role;
-    const token = sessionStorage.getItem(`sm_token_${activeRole}`);
+    const token =
+      sessionStorage.getItem(`sm_token_${activeRole}`) ||
+      sessionStorage.getItem('sm_token') ||
+      localStorage.getItem(`sm_token_${activeRole}`) ||
+      localStorage.getItem('sm_token');
     return {
       'Content-Type': 'application/json',
       ...(token ? { 'Authorization': `Bearer ${token}` } : {})
@@ -672,6 +676,9 @@ export const AppProvider = ({ children }) => {
   const addProduct = async (newProd) => {
     try {
       const headers = getAuthHeaders('admin');
+      if (!headers.Authorization) {
+        throw new Error('Admin authorization required. Please log in at /login to save changes.');
+      }
       const res = await fetch(`${API_BASE}/products`, {
         method: 'POST',
         headers,
@@ -680,7 +687,10 @@ export const AppProvider = ({ children }) => {
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
+        const errorData = await res.json().catch(() => ({}));
+        if (res.status === 401) {
+          throw new Error('Your admin session has expired. Please log out and log in again.');
+        }
         throw new Error(errorData.message || 'Product creation failed.');
       }
 
@@ -694,6 +704,9 @@ export const AppProvider = ({ children }) => {
   const updateProduct = async (updatedProd) => {
     try {
       const headers = getAuthHeaders('admin');
+      if (!headers.Authorization) {
+        throw new Error('Admin authorization required. Please log in at /login to save changes.');
+      }
       const res = await fetch(`${API_BASE}/products/${updatedProd.id}`, {
         method: 'PUT',
         headers,
@@ -702,7 +715,10 @@ export const AppProvider = ({ children }) => {
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
+        const errorData = await res.json().catch(() => ({}));
+        if (res.status === 401) {
+          throw new Error('Your admin session has expired. Please log out and log in again.');
+        }
         throw new Error(errorData.message || 'Product modification failed.');
       }
 
@@ -716,6 +732,9 @@ export const AppProvider = ({ children }) => {
   const deleteProduct = async (productId) => {
     try {
       const headers = getAuthHeaders('admin');
+      if (!headers.Authorization) {
+        throw new Error('Admin authorization required. Please log in at /login to delete products.');
+      }
       const res = await fetch(`${API_BASE}/products/${productId}`, {
         method: 'DELETE',
         headers,
@@ -723,7 +742,10 @@ export const AppProvider = ({ children }) => {
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
+        const errorData = await res.json().catch(() => ({}));
+        if (res.status === 401) {
+          throw new Error('Your admin session has expired. Please log out and log in again.');
+        }
         throw new Error(errorData.message || 'Product removal failed.');
       }
 

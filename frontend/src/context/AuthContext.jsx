@@ -47,23 +47,43 @@ export const AuthProvider = ({ children }) => {
   const [authLoading, setAuthLoading] = useState(true);
 
   const fetchProfile = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data);
-        setIsAuthenticated(true);
-        localStorage.setItem('sm_current_user', JSON.stringify(data));
-        setAuthLoading(false);
-        return;
+    const token = sessionStorage.getItem('sm_token') || localStorage.getItem('sm_token');
+
+    if (token) {
+      try {
+        const res = await fetch(`${API_BASE}/auth/me`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+          credentials: 'include'
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data);
+          setIsAuthenticated(true);
+          localStorage.setItem('sm_current_user', JSON.stringify(data));
+          setAuthLoading(false);
+          return;
+        } else if (res.status === 401) {
+          console.warn('Backend rejected expired/missing token. Resetting credentials.');
+          sessionStorage.removeItem('sm_token');
+          localStorage.removeItem('sm_token');
+          ['admin', 'warehouse_staff', 'delivery_agent', 'customer'].forEach(r => {
+            sessionStorage.removeItem(`sm_token_${r}`);
+            localStorage.removeItem(`sm_token_${r}`);
+          });
+          localStorage.removeItem('sm_current_user');
+          setUser(null);
+          setIsAuthenticated(false);
+          setAuthLoading(false);
+          return;
+        }
+      } catch (err) {
+        console.warn('Authentication sync with backend failed, checking saved local user session...', err);
       }
-    } catch (err) {
-      console.warn('Authentication sync with backend failed, checking saved local user session...', err);
     }
 
-    // Check saved local session for offline / mobile app persistence
+    // Check saved local session for offline / mobile app persistence only if token exists
     const savedUser = localStorage.getItem('sm_current_user');
-    if (savedUser) {
+    if (savedUser && token) {
       try {
         const parsed = JSON.parse(savedUser);
         setUser(parsed);
@@ -114,6 +134,12 @@ export const AuthProvider = ({ children }) => {
           setUser(data.user);
           setIsAuthenticated(true);
           localStorage.setItem('sm_current_user', JSON.stringify(data.user));
+          if (data.token) {
+            sessionStorage.setItem('sm_token', data.token);
+            sessionStorage.setItem(`sm_token_${data.user.role}`, data.token);
+            localStorage.setItem('sm_token', data.token);
+            localStorage.setItem(`sm_token_${data.user.role}`, data.token);
+          }
           return data.user;
         }
       } else {
@@ -237,8 +263,11 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
+      const token = sessionStorage.getItem('sm_token') || localStorage.getItem('sm_token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       await fetch(`${API_BASE}/auth/logout`, {
         method: 'POST',
+        headers,
         credentials: 'include'
       });
     } catch (err) {
@@ -247,6 +276,12 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       setIsAuthenticated(false);
       localStorage.removeItem('sm_current_user');
+      sessionStorage.removeItem('sm_token');
+      localStorage.removeItem('sm_token');
+      ['admin', 'warehouse_staff', 'delivery_agent', 'customer'].forEach(r => {
+        sessionStorage.removeItem(`sm_token_${r}`);
+        localStorage.removeItem(`sm_token_${r}`);
+      });
     }
   };
 
