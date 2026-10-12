@@ -4,9 +4,14 @@ import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import { json, urlencoded } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Increase payload limit to prevent "request entity too large" on product images and catalogs
+  app.use(json({ limit: '50mb' }));
+  app.use(urlencoded({ extended: true, limit: '50mb' }));
 
   // Enable graceful shutdown hooks for container lifecycle SIGTERM/SIGINT signals
   app.enableShutdownHooks();

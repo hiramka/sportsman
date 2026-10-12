@@ -145,12 +145,73 @@ export default function AdminPortal() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
 
-  const handleImageUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Client-side image compressor: Resizes large camera photos down to crisp ~100-250KB WebP
+  const compressImage = (file, maxWidth = 1200, maxHeight = 1200, quality = 0.8) => {
+    return new Promise((resolve) => {
+      if (file.type === 'image/svg+xml' || file.type === 'image/gif') {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve({ file, previewUrl: reader.result });
+        reader.readAsDataURL(file);
+        return;
+      }
 
-    if (!file.type.startsWith('image/')) {
-      setUploadError('Please select a valid image file (PNG, JPG, WEBP).');
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.webp'), {
+                type: 'image/webp',
+                lastModified: Date.now()
+              });
+              const previewUrl = canvas.toDataURL('image/webp', quality);
+              resolve({ file: compressedFile, previewUrl });
+            } else {
+              const previewUrl = canvas.toDataURL('image/jpeg', quality);
+              resolve({ file, previewUrl });
+            }
+          },
+          'image/webp',
+          quality
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        const reader = new FileReader();
+        reader.onloadend = () => resolve({ file, previewUrl: reader.result });
+        reader.readAsDataURL(file);
+      };
+      img.src = objectUrl;
+    });
+  };
+
+  const handleImageUpload = async (e) => {
+    const rawFile = e.target.files?.[0];
+    if (!rawFile) return;
+
+    if (!rawFile.type.startsWith('image/')) {
+      setUploadError('Please select a valid image file (PNG, JPG, WEBP, GIF, SVG).');
       return;
     }
 
@@ -158,45 +219,44 @@ export default function AdminPortal() {
     setUploading(true);
 
     try {
-      // 1. Convert to static Data URL as primary local asset (works 100% offline & online)
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const staticDataUrl = reader.result;
-        setProductForm(prev => ({ ...prev, imageUrl: staticDataUrl }));
-        setUploading(false);
-      };
-      reader.onerror = () => {
-        setUploadError('Could not read image file.');
-        setUploading(false);
-      };
-      reader.readAsDataURL(file);
+      // 1. Client-side compression to prevent 413 Payload Too Large
+      const { file, previewUrl } = await compressImage(rawFile);
+      setProductForm(prev => ({ ...prev, imageUrl: previewUrl }));
 
-      // 2. Safely attempt backend upload only if an admin JWT token exists
+      // 2. Upload compressed image to backend / Supabase
       const token =
         sessionStorage.getItem('sm_token_admin') ||
         sessionStorage.getItem('sm_token') ||
         localStorage.getItem('sm_token_admin') ||
         localStorage.getItem('sm_token');
+
       if (token) {
         const formData = new FormData();
         formData.append('image', file);
-        fetch(`${API_BASE}/products/upload-image`, {
+        const response = await fetch(`${API_BASE}/products/upload-image`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}` },
           body: formData,
           credentials: 'include',
-        }).then(async response => {
-          if (response.ok) {
-            const data = await response.json();
-            const host = API_BASE.replace('/api', '');
-            const finalUrl = data.imageUrl?.startsWith('http') ? data.imageUrl : `${host}${data.imageUrl}`;
-            setProductForm(prev => ({ ...prev, imageUrl: finalUrl }));
-          }
-        }).catch(err => {
-          console.warn('Backend image upload fallback to local static data URL.', err);
         });
+
+        if (response.ok) {
+          const data = await response.json();
+          const host = API_BASE.replace('/api', '');
+          const finalUrl = data.imageUrl?.startsWith('http') ? data.imageUrl : `${host}${data.imageUrl}`;
+          setProductForm(prev => ({ ...prev, imageUrl: finalUrl }));
+        } else {
+          const errData = await response.json().catch(() => ({}));
+          console.warn('Backend image upload fallback to compressed preview:', errData);
+          if (response.status === 413) {
+            setUploadError('Image exceeds remote limits. Using optimized local format.');
+          }
+        }
       }
     } catch (err) {
+      console.error('Image compression or upload failed:', err);
+      setUploadError('Could not process image file.');
+    } finally {
       setUploading(false);
     }
   };
@@ -1691,9 +1751,12 @@ export default function AdminPortal() {
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-black rounded-xl shadow-lg shadow-cyan-500/10 cursor-pointer"
+                      disabled={uploading}
+                      className={`px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-black rounded-xl shadow-lg shadow-cyan-500/10 cursor-pointer ${
+                        uploading ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
                     >
-                      {editingProduct ? 'Save Product' : 'Add Product'}
+                      {uploading ? 'Processing Image...' : editingProduct ? 'Save Product' : 'Add Product'}
                     </button>
                   </div>
                 </form>
