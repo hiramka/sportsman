@@ -59,11 +59,20 @@ export default function AdminPortal() {
   // Search & view filters
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'products' | 'orders' | 'quotations' | 'coupons' | 'users' | 'messages'
   const [productSearch, setProductSearch] = useState('');
+  const [productCategoryFilter, setProductCategoryFilter] = useState('All');
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [orderSearch, setOrderSearch] = useState('');
   const [userSearch, setUserSearch] = useState('');
   const [messageSearch, setMessageSearch] = useState('');
   const [quotationSearch, setQuotationSearch] = useState('');
   const [quotationStatusFilter, setQuotationStatusFilter] = useState('All');
+
+  // Compute all available categories from active catalog products plus standards
+  const availableCategories = useMemo(() => {
+    const base = ['Football', 'Basketball', 'Jerseys', 'Boots', 'Table Tennis', 'Rugby', 'Athletics', 'Swimming', 'Fitness', 'Accessories'];
+    const dynamic = (products || []).map(p => p.category).filter(Boolean);
+    return Array.from(new Set([...base, ...dynamic]));
+  }, [products]);
 
   // CSV Export Filter State
   const [csvDateRange, setCsvDateRange] = useState('all');
@@ -363,14 +372,16 @@ export default function AdminPortal() {
   // Product Catalog filter
   const filteredProducts = useMemo(() => {
     const query = (productSearch || '').toLowerCase();
-    return (products || []).filter(p =>
-      p && (
+    return (products || []).filter(p => {
+      if (!p) return false;
+      const matchesSearch =
         (p.name && String(p.name).toLowerCase().includes(query)) ||
         (p.brand && String(p.brand).toLowerCase().includes(query)) ||
-        (p.category && String(p.category).toLowerCase().includes(query))
-      )
-    );
-  }, [products, productSearch]);
+        (p.category && String(p.category).toLowerCase().includes(query));
+      const matchesCategory = productCategoryFilter === 'All' || p.category === productCategoryFilter;
+      return matchesSearch && matchesCategory;
+    });
+  }, [products, productSearch, productCategoryFilter]);
 
   // Order Logs filter
   const filteredOrders = useMemo(() => {
@@ -468,6 +479,7 @@ export default function AdminPortal() {
   // Trigger Edit Mode
   const startEditProduct = (prod) => {
     setEditingProduct(prod);
+    setIsCustomCategory(false);
     let sizeStr = '';
     if (prod.sizes) {
       try {
@@ -919,16 +931,18 @@ export default function AdminPortal() {
                   <button
                     onClick={() => {
                       setEditingProduct(null);
+                      setIsCustomCategory(false);
                       setProductForm({
                         name: '',
-                        category: 'Football',
+                        category: productCategoryFilter !== 'All' ? productCategoryFilter : 'Football',
                         description: '',
                         price: '',
                         stockQuantity: '',
                         reorderThreshold: '3',
                         brand: '',
                         imageUrl: '',
-                        warehouseLocation: ''
+                        warehouseLocation: '',
+                        sizes: ''
                       });
                       setIsProductModalOpen(true);
                     }}
@@ -965,23 +979,55 @@ export default function AdminPortal() {
         {activeTab === 'products' && (
           <div className="space-y-6 animate-fade-in">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Filter products..."
-                  value={productSearch}
-                  onChange={(e) => setProductSearch(e.target.value)}
-                  className="pl-10 pr-4 py-2 bg-slate-900 border border-slate-800 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 rounded-xl text-xs w-full text-white"
-                />
+              <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-3 max-w-xl">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search by name, brand, aisle..."
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    className="pl-10 pr-4 py-2 bg-slate-900 border border-slate-800 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 rounded-xl text-xs w-full text-white"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={productCategoryFilter}
+                    onChange={(e) => setProductCategoryFilter(e.target.value)}
+                    className="bg-slate-900 border border-slate-800 text-slate-300 rounded-xl px-3 py-2 text-xs font-bold focus:border-cyan-500 focus:outline-none"
+                  >
+                    <option value="All">All Categories ({products.length})</option>
+                    {availableCategories.map(cat => {
+                      const count = products.filter(p => p.category === cat).length;
+                      return (
+                        <option key={cat} value={cat}>
+                          {cat} {count > 0 ? `(${count})` : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
               </div>
 
               <button
                 onClick={() => {
                   setEditingProduct(null);
+                  setIsCustomCategory(false);
+                  setProductForm({
+                    name: '',
+                    category: productCategoryFilter !== 'All' ? productCategoryFilter : 'Football',
+                    description: '',
+                    price: '',
+                    stockQuantity: '',
+                    reorderThreshold: '3',
+                    brand: '',
+                    imageUrl: '',
+                    warehouseLocation: '',
+                    sizes: ''
+                  });
                   setIsProductModalOpen(true);
                 }}
-                className="bg-cyan-600 hover:bg-cyan-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 cursor-pointer"
+                className="bg-cyan-600 hover:bg-cyan-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-lg shadow-cyan-500/10"
               >
                 <Plus className="w-4 h-4" /> Add Product
               </button>
@@ -1727,16 +1773,51 @@ export default function AdminPortal() {
                   {/* Category Selection & Available Sizes */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Category</label>
-                      <select
-                        value={productForm.category}
-                        onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
-                        className="w-full bg-slate-900 border border-slate-800 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
-                      >
-                        {['Football', 'Basketball', 'Jerseys', 'Boots', 'Table Tennis'].map(cat => (
-                          <option key={cat} value={cat} className="bg-slate-900">{cat}</option>
-                        ))}
-                      </select>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[9px] font-black uppercase text-slate-400 block">Category *</label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsCustomCategory(!isCustomCategory);
+                            if (!isCustomCategory) {
+                              setProductForm(prev => ({ ...prev, category: '' }));
+                            } else {
+                              setProductForm(prev => ({ ...prev, category: 'Football' }));
+                            }
+                          }}
+                          className="text-[9px] text-cyan-400 hover:text-cyan-300 font-bold underline cursor-pointer"
+                        >
+                          {isCustomCategory ? '← Choose Existing' : '+ New Category'}
+                        </button>
+                      </div>
+                      {isCustomCategory ? (
+                        <input
+                          type="text"
+                          required
+                          placeholder="Type new category (e.g. Rugby, Swimming)"
+                          value={productForm.category}
+                          onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
+                          className="w-full bg-slate-900 border border-cyan-500/60 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500"
+                        />
+                      ) : (
+                        <select
+                          value={productForm.category}
+                          onChange={(e) => {
+                            if (e.target.value === '__custom__') {
+                              setIsCustomCategory(true);
+                              setProductForm({ ...productForm, category: '' });
+                            } else {
+                              setProductForm({ ...productForm, category: e.target.value });
+                            }
+                          }}
+                          className="w-full bg-slate-900 border border-slate-800 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+                        >
+                          {availableCategories.map(cat => (
+                            <option key={cat} value={cat} className="bg-slate-900">{cat}</option>
+                          ))}
+                          <option value="__custom__" className="bg-slate-900 text-cyan-400 font-bold">+ Create New Category...</option>
+                        </select>
+                      )}
                     </div>
                     <div>
                       <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Available Sizes (Comma-separated)</label>
