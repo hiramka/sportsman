@@ -33,4 +33,7 @@ export class Product {
 
   @Column({ nullable: true })
   warehouseLocation: string;
+
+  @Column({ type: 'text', nullable: true, default: '["Standard"]' })
+  sizes: string;
 }

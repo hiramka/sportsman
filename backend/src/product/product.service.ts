@@ -152,6 +152,7 @@ export class ProductService implements OnModuleDestroy {
       brand: productDto.brand,
       imageUrl: productDto.imageUrl,
       warehouseLocation: productDto.warehouseLocation,
+      sizes: typeof productDto.sizes === 'string' ? productDto.sizes : JSON.stringify(productDto.sizes || ['Standard']),
     });
 
     const saved = await this.productRepository.save(product);
@@ -172,6 +173,9 @@ export class ProductService implements OnModuleDestroy {
     product.brand = productDto.brand;
     product.imageUrl = productDto.imageUrl;
     product.warehouseLocation = productDto.warehouseLocation;
+    if (productDto.sizes !== undefined) {
+      product.sizes = typeof productDto.sizes === 'string' ? productDto.sizes : JSON.stringify(productDto.sizes || ['Standard']);
+    }
 
     const saved = await this.productRepository.save(product);
     await this.evictCache(); // Invalidate cache index

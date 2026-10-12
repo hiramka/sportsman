@@ -24,10 +24,13 @@ import {
   FileText,
   Printer,
   Send,
-  RefreshCw
+  RefreshCw,
+  Download
 } from 'lucide-react';
 import QuotationModal from '../components/QuotationModal';
 import { printQuotation } from '../components/QuotationPrintView';
+import { printShippingWaybill } from '../utils/waybillPrinter';
+import { exportOrdersToCSV } from '../utils/csvExporter';
 
 export default function AdminPortal() {
   const {
@@ -37,6 +40,7 @@ export default function AdminPortal() {
     deleteProduct,
     orders,
     updateOrderStatus,
+    updateExchangeStatus,
     coupons,
     addCoupon,
     API_BASE,
@@ -60,6 +64,11 @@ export default function AdminPortal() {
   const [messageSearch, setMessageSearch] = useState('');
   const [quotationSearch, setQuotationSearch] = useState('');
   const [quotationStatusFilter, setQuotationStatusFilter] = useState('All');
+
+  // CSV Export Filter State
+  const [csvDateRange, setCsvDateRange] = useState('all');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
 
   // Quotation Modal state
   const [isQuotationModalOpen, setIsQuotationModalOpen] = useState(false);
@@ -1022,16 +1031,60 @@ export default function AdminPortal() {
         {/* TAB 3: ORDER LIST & STATUS MODIFICATION */}
         {activeTab === 'orders' && (
           <div className="space-y-6 animate-fade-in">
-            <div className="max-w-sm">
-              <div className="relative">
+            {/* Search and CSV Export Bar */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#0D1321]/45 border border-slate-800 p-4 rounded-2xl">
+              <div className="relative flex-1 max-w-sm">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search orders, phone, customer..."
+                  placeholder="Search orders, phone, customer, exchange..."
                   value={orderSearch}
                   onChange={(e) => setOrderSearch(e.target.value)}
                   className="pl-10 pr-4 py-2 bg-slate-900 border border-slate-800 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 rounded-xl text-xs w-full text-white"
                 />
+              </div>
+
+              {/* Date Filter & CSV Export */}
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={csvDateRange}
+                  onChange={(e) => setCsvDateRange(e.target.value)}
+                  className="bg-slate-900 border border-slate-800 text-slate-200 text-xs font-bold px-3 py-2 rounded-xl focus:border-cyan-500 cursor-pointer"
+                >
+                  <option value="all">Date Range: All Orders</option>
+                  <option value="today">Today's Orders</option>
+                  <option value="7days">Last 7 Days</option>
+                  <option value="30days">Last 30 Days</option>
+                  <option value="month">This Month (Accounting)</option>
+                  <option value="custom">Custom Date Range</option>
+                </select>
+
+                {csvDateRange === 'custom' && (
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="bg-slate-900 border border-slate-800 text-slate-200 px-2 py-1.5 rounded-lg text-xs"
+                    />
+                    <span className="text-slate-500">to</span>
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="bg-slate-900 border border-slate-800 text-slate-200 px-2 py-1.5 rounded-lg text-xs"
+                    />
+                  </div>
+                )}
+
+                <button
+                  onClick={() => exportOrdersToCSV(orders, csvDateRange, { start: customStartDate, end: customEndDate })}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-md shadow-emerald-600/20 cursor-pointer"
+                  title="Export to CSV for monthly business accounting, inventory auditing, supplier restocking, and KRA VAT filing"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Export Orders to CSV (KRA & Accounting)</span>
+                </button>
               </div>
             </div>
 
@@ -1043,6 +1096,7 @@ export default function AdminPortal() {
                     <tr className="bg-slate-950/70 border-b border-slate-900 text-slate-400 font-extrabold select-none">
                       <th className="p-4">Order ID</th>
                       <th className="p-4">Customer Details</th>
+                      <th className="p-4">Items & Sizes</th>
                       <th className="p-4">Total Price</th>
                       <th className="p-4">Payment Method</th>
                       <th className="p-4">Workflow Status</th>
@@ -1057,14 +1111,44 @@ export default function AdminPortal() {
                       if (o.status === 'Cancelled') statusBadge = 'bg-red-500/10 text-red-400 border border-red-500/20';
                       if (o.status === 'Ready for Shipping' || o.status === 'Shipped') statusBadge = 'bg-purple-500/10 text-purple-400 border border-purple-500/20';
 
+                      let exchangeTicket = null;
+                      if (o.exchangeRequestJson) {
+                        try {
+                          exchangeTicket = JSON.parse(o.exchangeRequestJson);
+                        } catch (e) {}
+                      }
+
                       return (
                         <tr key={o.id} className="hover:bg-slate-900/30 transition-colors">
-                          <td className="p-4 font-black text-white">{o.id}</td>
+                          <td className="p-4 font-black text-white">
+                            <span>{o.id}</span>
+                            {exchangeTicket && (
+                              <span className="block mt-1 px-2 py-0.5 rounded text-[9px] font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                                🔄 Exchange: {exchangeTicket.status || 'Pending'}
+                              </span>
+                            )}
+                          </td>
                           <td className="p-4">
                             <span className="block font-bold text-slate-200">{o.customerName}</span>
-                            <span className="block text-[10px] text-slate-500 mt-0.5">{o.phone} • {o.subCounty}</span>
+                            <span className="block text-[10px] text-slate-500 mt-0.5">{o.phone} • {o.subCounty || 'Nairobi'}, {o.county || 'Nairobi'}</span>
                           </td>
-                          <td className="p-4 font-black text-white">KES {o.totalAmount.toLocaleString()}</td>
+                          <td className="p-4">
+                            <div className="space-y-0.5">
+                              {(o.items || []).map((it, idx) => (
+                                <div key={idx} className="text-[11px] text-slate-300">
+                                  <span>{it.product?.name || 'Item'}</span>
+                                  <span className="ml-1 text-[10px] font-bold text-orange-400">({it.selectedSize || 'Standard'})</span>
+                                  <span className="ml-1 text-slate-500">x{it.quantity}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="p-4 font-black text-white">
+                            <div>KES {o.totalAmount.toLocaleString()}</div>
+                            {Number(o.shippingFee) > 0 && (
+                              <span className="text-[10px] text-slate-500 block">incl. KES {o.shippingFee} delivery</span>
+                            )}
+                          </td>
                           <td className="p-4 font-semibold text-slate-300">
                             {o.paymentMethod}
                             {o.mpesaReference && (
@@ -1097,7 +1181,17 @@ export default function AdminPortal() {
                                 </button>
                               )}
 
-                              {/* Standard Order Cancellation with inventory stock restoration! */}
+                              {/* 1-Click Thermal 4x6 / A4 Shipping Waybill */}
+                              <button
+                                onClick={() => printShippingWaybill(o)}
+                                className="px-2 py-1 bg-purple-900/40 border border-purple-500/40 hover:bg-purple-600 text-purple-300 hover:text-white rounded text-[10px] font-extrabold transition-all cursor-pointer flex items-center gap-1"
+                                title="Print 4x6 thermal sticker or A4 waybill, with option to save"
+                              >
+                                <Printer className="w-3 h-3" />
+                                <span>Waybill</span>
+                              </button>
+
+                              {/* Standard Order Cancellation */}
                               {o.status !== 'Cancelled' && o.status !== 'Delivered' && (
                                 <button
                                   onClick={() => {
@@ -1112,12 +1206,30 @@ export default function AdminPortal() {
                                 </button>
                               )}
 
+                              {/* Size Exchange Ticket Actions */}
+                              {exchangeTicket && exchangeTicket.status === 'Pending' && (
+                                <div className="flex gap-1 w-full mt-1">
+                                  <button
+                                    onClick={() => updateExchangeStatus(o.id, 'Approved', 'Approved by admin for dispatch')}
+                                    className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[9px] font-black cursor-pointer"
+                                  >
+                                    Approve Exchange
+                                  </button>
+                                  <button
+                                    onClick={() => updateExchangeStatus(o.id, 'Rejected', 'Out of replacement stock')}
+                                    className="px-2 py-0.5 bg-slate-800 hover:bg-red-900 text-slate-300 hover:text-white rounded text-[9px] font-black cursor-pointer"
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              )}
+
                               {o.status !== 'Pending Payment' && o.status !== 'Cancelled' && (
                                 <button
                                   onClick={() => printReceipt(o)}
                                   className="px-2 py-1 bg-slate-900 border border-slate-850 hover:border-orange-500 text-orange-400 rounded text-[10px] font-extrabold transition-all cursor-pointer"
                                 >
-                                  🖨️ Print Receipt
+                                  Receipt
                                 </button>
                               )}
 

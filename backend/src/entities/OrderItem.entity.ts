@@ -13,6 +13,9 @@ export class OrderItem {
   @Column({ type: 'float' })
   price: number;
 
+  @Column({ nullable: true })
+  selectedSize: string;
+
   @ManyToOne(() => Order, order => order.items, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'order_id' })
   @Index()

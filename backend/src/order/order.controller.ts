@@ -137,4 +137,23 @@ export class OrderController {
 
     return this.orderService.updateStatus(id, targetStatus, body.extraData || {});
   }
+
+  // Customer size exchange request
+  @Post(':id/exchange')
+  async requestExchange(
+    @Param('id') id: string,
+    @Body() body: { itemId?: string; productName: string; currentSize: string; requestedSize: string; reason: string }
+  ) {
+    return this.orderService.requestSizeExchange(id, body);
+  }
+
+  // Warehouse/Admin approve or reject size exchange
+  @Put(':id/exchange-status')
+  @UseGuards(AuthGuard)
+  async updateExchangeStatus(
+    @Param('id') id: string,
+    @Body() body: { status: string; notes?: string }
+  ) {
+    return this.orderService.updateExchangeStatus(id, body.status, body.notes);
+  }
 }

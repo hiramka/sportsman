@@ -61,7 +61,7 @@ export class OrderService {
 
   // Transaction-backed order checkout with Pessimistic Row-Level Locking!
   async create(createDto: any) {
-    const { userId, name, email, phone, address, subCounty, paymentMethod, cart, couponCode } = createDto;
+    const { userId, name, email, phone, address, subCounty, county, shippingFee, paymentMethod, cart, couponCode } = createDto;
 
     if (!cart || cart.length === 0) {
       throw new BadRequestException('Shopping cart cannot be empty.');
@@ -98,11 +98,12 @@ export class OrderService {
         product.stockQuantity -= cartItem.quantity;
         await entityManager.save(Product, product);
 
-        // Build item node
+        // Build item node with selected size variant
         const orderItem = new OrderItem();
         orderItem.product = product;
         orderItem.quantity = cartItem.quantity;
         orderItem.price = product.price; // Lock price
+        orderItem.selectedSize = cartItem.selectedSize || cartItem.size || 'Standard';
         orderItems.push(orderItem);
 
         subtotal += product.price * cartItem.quantity;
@@ -120,7 +121,8 @@ export class OrderService {
         }
       }
 
-      const totalAmount = subtotal - discountAmount;
+      const parsedShippingFee = Number(shippingFee) || 0;
+      const totalAmount = Math.max(0, subtotal - discountAmount + parsedShippingFee);
       const timeline = [
         {
           status: 'Ordered',
@@ -138,6 +140,8 @@ export class OrderService {
       order.phone = phone;
       order.deliveryAddress = address;
       order.subCounty = subCounty;
+      order.county = county || 'Nairobi';
+      order.shippingFee = parsedShippingFee;
       order.subtotal = subtotal;
       order.discountAmount = discountAmount;
       order.totalAmount = totalAmount;
@@ -296,6 +300,65 @@ export class OrderService {
         reorderThreshold: p.reorderThreshold,
       })),
     };
+  }
+
+  // Customer Size Exchange Ticket Processing
+  async requestSizeExchange(id: string, dto: { itemId?: string; productName: string; currentSize: string; requestedSize: string; reason: string }) {
+    const order = await this.findById(id);
+    if (!order) {
+      throw new NotFoundException(`Order ${id} not found.`);
+    }
+
+    const exchangeData = {
+      orderId: order.id,
+      itemId: dto.itemId || null,
+      productName: dto.productName,
+      currentSize: dto.currentSize || 'Original Size',
+      requestedSize: dto.requestedSize,
+      reason: dto.reason || 'Size exchange requested by customer',
+      status: 'Pending Review',
+      requestedAt: new Date().toISOString()
+    };
+
+    order.exchangeRequestJson = JSON.stringify(exchangeData);
+
+    const timeline = JSON.parse(order.timelineJson || '[]');
+    timeline.push({
+      status: 'Exchange Requested',
+      date: new Date().toISOString(),
+      message: `Size exchange requested for "${dto.productName}" (${dto.currentSize} ➔ ${dto.requestedSize}). Reason: ${dto.reason}`
+    });
+    order.timelineJson = JSON.stringify(timeline);
+
+    return await this.orderRepository.save(order);
+  }
+
+  async updateExchangeStatus(id: string, status: string, notes?: string) {
+    const order = await this.findById(id);
+    if (!order) {
+      throw new NotFoundException(`Order ${id} not found.`);
+    }
+
+    const currentExchange = order.exchangeRequestJson ? JSON.parse(order.exchangeRequestJson) : null;
+    if (!currentExchange) {
+      throw new BadRequestException('No active size exchange ticket found for this order.');
+    }
+
+    currentExchange.status = status;
+    currentExchange.resolvedAt = new Date().toISOString();
+    if (notes) currentExchange.resolutionNotes = notes;
+
+    order.exchangeRequestJson = JSON.stringify(currentExchange);
+
+    const timeline = JSON.parse(order.timelineJson || '[]');
+    timeline.push({
+      status: `Exchange ${status}`,
+      date: new Date().toISOString(),
+      message: `Size exchange ticket marked as ${status}. ${notes ? `(${notes})` : ''}`
+    });
+    order.timelineJson = JSON.stringify(timeline);
+
+    return await this.orderRepository.save(order);
   }
 }
 

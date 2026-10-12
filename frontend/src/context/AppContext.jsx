@@ -16,7 +16,8 @@ const DEFAULT_PRODUCTS = [
     reorderThreshold: 5,
     brand: 'Sportsman',
     imageUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=500&auto=format&fit=crop&q=60',
-    warehouseLocation: 'Aisle A - Row 1'
+    warehouseLocation: 'Aisle A - Row 1',
+    sizes: JSON.stringify(['Size 5 (Official)', 'Size 4 (Junior)'])
   },
   {
     id: 'prod-2',
@@ -28,7 +29,8 @@ const DEFAULT_PRODUCTS = [
     reorderThreshold: 5,
     brand: 'Sportsman',
     imageUrl: 'https://images.unsplash.com/photo-1577223625816-7546f13df25d?w=500&auto=format&fit=crop&q=60',
-    warehouseLocation: 'Aisle A - Row 3'
+    warehouseLocation: 'Aisle A - Row 3',
+    sizes: JSON.stringify(['S', 'M', 'L', 'XL', 'XXL'])
   },
   {
     id: 'prod-3',
@@ -40,7 +42,8 @@ const DEFAULT_PRODUCTS = [
     reorderThreshold: 3,
     brand: 'Spalding',
     imageUrl: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=500&auto=format&fit=crop&q=60',
-    warehouseLocation: 'Aisle B - Row 2'
+    warehouseLocation: 'Aisle B - Row 2',
+    sizes: JSON.stringify(['Size 7 (Men)', 'Size 6 (Women)', 'Size 5 (Youth)'])
   },
   {
     id: 'prod-4',
@@ -52,7 +55,8 @@ const DEFAULT_PRODUCTS = [
     reorderThreshold: 5,
     brand: 'Sportsman',
     imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&auto=format&fit=crop&q=60',
-    warehouseLocation: 'Aisle C - Row 4'
+    warehouseLocation: 'Aisle C - Row 4',
+    sizes: JSON.stringify(['UK 7', 'UK 8', 'UK 9', 'UK 10', 'UK 11'])
   },
   {
     id: 'prod-5',
@@ -64,7 +68,8 @@ const DEFAULT_PRODUCTS = [
     reorderThreshold: 2,
     brand: 'Donic',
     imageUrl: 'https://images.unsplash.com/photo-1534158914592-062992fbe900?w=500&auto=format&fit=crop&q=60',
-    warehouseLocation: 'Zone D - Shelf 1'
+    warehouseLocation: 'Zone D - Shelf 1',
+    sizes: JSON.stringify(['Standard 9x5 ft'])
   },
   {
     id: 'prod-6',
@@ -76,7 +81,8 @@ const DEFAULT_PRODUCTS = [
     reorderThreshold: 4,
     brand: 'Butterfly',
     imageUrl: 'https://images.unsplash.com/photo-1511067007398-7e4b90cfa4bc?w=500&auto=format&fit=crop&q=60',
-    warehouseLocation: 'Aisle B - Row 4'
+    warehouseLocation: 'Aisle B - Row 4',
+    sizes: JSON.stringify(['Flared (FL)', 'Anatomic (AN)', 'Straight (ST)'])
   },
   {
     id: 'prod-7',
@@ -88,7 +94,8 @@ const DEFAULT_PRODUCTS = [
     reorderThreshold: 10,
     brand: 'Donic',
     imageUrl: 'https://images.unsplash.com/photo-1620987278429-ca18c53d279d?w=500&auto=format&fit=crop&q=60',
-    warehouseLocation: 'Aisle B - Row 5'
+    warehouseLocation: 'Aisle B - Row 5',
+    sizes: JSON.stringify(['40mm (Pack of 12)'])
   },
   {
     id: 'prod-8',
@@ -100,7 +107,8 @@ const DEFAULT_PRODUCTS = [
     reorderThreshold: 3,
     brand: 'Sportsman',
     imageUrl: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=500&auto=format&fit=crop&q=60',
-    warehouseLocation: 'Aisle B - Row 3'
+    warehouseLocation: 'Aisle B - Row 3',
+    sizes: JSON.stringify(['Standard 12-Loop (Pair)'])
   }
 ];
 
@@ -239,10 +247,14 @@ export const AppProvider = ({ children }) => {
           const data = await res.json();
           const parsedOrders = data.map(o => ({
             ...o,
+            county: o.county || 'Nairobi',
+            shippingFee: Number(o.shippingFee) || 0,
+            exchangeRequestJson: o.exchangeRequestJson || null,
             timeline: JSON.parse(o.timelineJson || '[]'),
-            items: o.items.map(item => ({
+            items: (o.items || []).map(item => ({
               product: item.product,
-              quantity: item.quantity
+              quantity: item.quantity,
+              selectedSize: item.selectedSize || 'Standard'
             }))
           }));
           setOrders(parsedOrders);
@@ -270,10 +282,14 @@ export const AppProvider = ({ children }) => {
         const data = await res.json();
         const parsedOrders = data.map(o => ({
           ...o,
+          county: o.county || 'Nairobi',
+          shippingFee: Number(o.shippingFee) || 0,
+          exchangeRequestJson: o.exchangeRequestJson || null,
           timeline: JSON.parse(o.timelineJson || '[]'),
-          items: o.items.map(item => ({
+          items: (o.items || []).map(item => ({
             product: item.product,
-            quantity: item.quantity
+            quantity: item.quantity,
+            selectedSize: item.selectedSize || 'Standard'
           }))
         }));
         setOrders(parsedOrders);
@@ -295,10 +311,14 @@ export const AppProvider = ({ children }) => {
               const o = await res.json();
               return {
                 ...o,
+                county: o.county || 'Nairobi',
+                shippingFee: Number(o.shippingFee) || 0,
+                exchangeRequestJson: o.exchangeRequestJson || null,
                 timeline: JSON.parse(o.timelineJson || '[]'),
-                items: o.items.map(item => ({
+                items: (o.items || []).map(item => ({
                   product: item.product,
-                  quantity: item.quantity
+                  quantity: item.quantity,
+                  selectedSize: item.selectedSize || 'Standard'
                 }))
               };
             }
@@ -363,41 +383,60 @@ export const AppProvider = ({ children }) => {
     addNotification('info', `Switched viewing perspective to ${newRole.toUpperCase()} Portal`);
   };
 
-  // Add item to cart
-  const addToCart = (product, quantity = 1) => {
+  // Add item to cart with size variant support
+  const addToCart = (product, quantity = 1, selectedSize = null) => {
+    let finalSize = selectedSize;
+    if (!finalSize) {
+      try {
+        const parsed = Array.isArray(product.sizes) ? product.sizes : JSON.parse(product.sizes || '[]');
+        finalSize = parsed[0] || 'Standard';
+      } catch {
+        finalSize = 'Standard';
+      }
+    }
+
     setCart(prevCart => {
-      const existingItem = prevCart.find(item => item.product.id === product.id);
-      if (existingItem) {
-        return prevCart.map(item =>
-          item.product.id === product.id
+      const existingIndex = prevCart.findIndex(
+        item => item.product.id === product.id && (item.selectedSize || 'Standard') === finalSize
+      );
+      if (existingIndex > -1) {
+        return prevCart.map((item, idx) =>
+          idx === existingIndex
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
       }
-      return [...prevCart, { product, quantity }];
+      return [...prevCart, { product, quantity, selectedSize: finalSize }];
     });
-    addNotification('success', `Added "${product.name}" to cart`);
+    addNotification('success', `Added "${product.name}" (${finalSize}) to cart`);
   };
 
   // Update item quantity in cart
-  const updateCartQuantity = (productId, quantity) => {
+  const updateCartQuantity = (productId, quantity, selectedSize = null) => {
     if (quantity <= 0) {
-      removeFromCart(productId);
+      removeFromCart(productId, selectedSize);
       return;
     }
     setCart(prevCart =>
-      prevCart.map(item =>
-        item.product.id === productId
-          ? { ...item, quantity }
-          : item
-      )
+      prevCart.map(item => {
+        const matchesProduct = item.product.id === productId;
+        const matchesSize = selectedSize ? (item.selectedSize === selectedSize) : true;
+        if (matchesProduct && matchesSize) {
+          return { ...item, quantity };
+        }
+        return item;
+      })
     );
   };
 
   // Remove item from cart
-  const removeFromCart = (productId) => {
-    const item = cart.find(i => i.product.id === productId);
-    setCart(prevCart => prevCart.filter(item => item.product.id !== productId));
+  const removeFromCart = (productId, selectedSize = null) => {
+    const item = cart.find(i => i.product.id === productId && (!selectedSize || i.selectedSize === selectedSize));
+    setCart(prevCart => prevCart.filter(item => {
+      if (item.product.id !== productId) return true;
+      if (selectedSize && item.selectedSize !== selectedSize) return true;
+      return false;
+    }));
     if (item) {
       addNotification('info', `Removed "${item.product.name}" from cart`);
     }
@@ -423,17 +462,20 @@ export const AppProvider = ({ children }) => {
   };
 
   // Place a new Order
-  const createOrder = async (customerInfo, paymentMethod) => {
+  const createOrder = async (customerInfo, paymentMethod, customCart = null) => {
     try {
+      const itemsToOrder = customCart || cart;
       const body = {
         userId: user ? user.id : null,
         name: customerInfo.name,
         email: customerInfo.email,
         phone: customerInfo.phone,
         address: customerInfo.address,
+        county: customerInfo.county || 'Nairobi',
         subCounty: customerInfo.subCounty,
+        shippingFee: Number(customerInfo.shippingFee) || 0,
         paymentMethod,
-        cart,
+        cart: itemsToOrder,
         couponCode: activeCoupon ? activeCoupon.code : null
       };
 
@@ -452,20 +494,26 @@ export const AppProvider = ({ children }) => {
       const rawOrder = await res.json();
       const parsedOrder = {
         ...rawOrder,
+        county: rawOrder.county || customerInfo.county || 'Nairobi',
+        shippingFee: Number(rawOrder.shippingFee || customerInfo.shippingFee || 0),
+        exchangeRequestJson: rawOrder.exchangeRequestJson || null,
         timeline: JSON.parse(rawOrder.timelineJson || '[]'),
-        items: rawOrder.items.map(item => ({
+        items: (rawOrder.items || []).map(item => ({
           product: item.product,
-          quantity: item.quantity
+          quantity: item.quantity,
+          selectedSize: item.selectedSize || 'Standard'
         }))
       };
 
       // Apply locally
       setOrders(prev => [parsedOrder, ...prev]);
-      clearCart();
+      if (!customCart) {
+        clearCart();
+      }
 
       // Trigger instant Email and SMS simulator notifications
       addNotification('email', `Order confirmation sent to ${customerInfo.email}. Ref: ${parsedOrder.id}`);
-      addNotification('sms', `Sportsman: Order ${parsedOrder.id} received. total: KES ${parsedOrder.totalAmount.toLocaleString()}. Thank you!`);
+      addNotification('sms', `Sportsman: Order ${parsedOrder.id} received. Total: KES ${parsedOrder.totalAmount.toLocaleString()}. Thank you!`);
 
       // Refetch catalog to sync locks & stock counts
       await fetchProducts();
@@ -494,10 +542,14 @@ export const AppProvider = ({ children }) => {
       const updated = await res.json();
       const parsed = {
         ...updated,
+        county: updated.county || 'Nairobi',
+        shippingFee: Number(updated.shippingFee || 0),
+        exchangeRequestJson: updated.exchangeRequestJson || null,
         timeline: JSON.parse(updated.timelineJson || '[]'),
-        items: updated.items.map(item => ({
+        items: (updated.items || []).map(item => ({
           product: item.product,
-          quantity: item.quantity
+          quantity: item.quantity,
+          selectedSize: item.selectedSize || 'Standard'
         }))
       };
 
@@ -559,10 +611,14 @@ export const AppProvider = ({ children }) => {
       const updated = await res.json();
       const parsed = {
         ...updated,
+        county: updated.county || 'Nairobi',
+        shippingFee: Number(updated.shippingFee || 0),
+        exchangeRequestJson: updated.exchangeRequestJson || null,
         timeline: JSON.parse(updated.timelineJson || '[]'),
-        items: updated.items.map(item => ({
+        items: (updated.items || []).map(item => ({
           product: item.product,
-          quantity: item.quantity
+          quantity: item.quantity,
+          selectedSize: item.selectedSize || 'Standard'
         }))
       };
 
@@ -577,13 +633,96 @@ export const AppProvider = ({ children }) => {
         addNotification('sms', `Sportsman: Order ${parsed.id} has been delivered successfully. Rate our service!`);
       } else if (newStatus === 'Cancelled') {
         addNotification('email', `Cancellation notice for order ${parsed.id} sent to ${parsed.email}`);
-        // Refresh catalogue stock levels
         await fetchProducts();
       }
 
       return parsed;
     } catch (err) {
       addNotification('error', err.message || 'Workflow update rejected.');
+    }
+  };
+
+  // Request size exchange (customer receipt tab)
+  const requestSizeExchange = async (orderId, exchangeDto) => {
+    try {
+      const headers = { 'Content-Type': 'application/json', ...getAuthHeaders() };
+      const res = await fetch(`${API_BASE}/orders/${orderId}/exchange`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(exchangeDto),
+        credentials: 'include'
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || 'Failed to submit exchange request.');
+      }
+
+      const updated = await res.json();
+      const parsed = {
+        ...updated,
+        county: updated.county || 'Nairobi',
+        shippingFee: Number(updated.shippingFee || 0),
+        exchangeRequestJson: updated.exchangeRequestJson || null,
+        timeline: JSON.parse(updated.timelineJson || '[]'),
+        items: (updated.items || []).map(item => ({
+          product: item.product,
+          quantity: item.quantity,
+          selectedSize: item.selectedSize || 'Standard'
+        }))
+      };
+
+      setOrders(prev =>
+        prev.map(order => (order.id === orderId ? parsed : order))
+      );
+
+      addNotification('success', 'Size exchange ticket created! Warehouse team has been notified.');
+      return parsed;
+    } catch (err) {
+      addNotification('error', err.message || 'Size exchange request failed.');
+      throw err;
+    }
+  };
+
+  // Update exchange ticket status (warehouse / admin action)
+  const updateExchangeStatus = async (orderId, exchangeStatus, staffNotes = '') => {
+    try {
+      const headers = getAuthHeaders();
+      const res = await fetch(`${API_BASE}/orders/${orderId}/exchange-status`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ exchangeStatus, staffNotes }),
+        credentials: 'include'
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || 'Failed to update exchange status.');
+      }
+
+      const updated = await res.json();
+      const parsed = {
+        ...updated,
+        county: updated.county || 'Nairobi',
+        shippingFee: Number(updated.shippingFee || 0),
+        exchangeRequestJson: updated.exchangeRequestJson || null,
+        timeline: JSON.parse(updated.timelineJson || '[]'),
+        items: (updated.items || []).map(item => ({
+          product: item.product,
+          quantity: item.quantity,
+          selectedSize: item.selectedSize || 'Standard'
+        }))
+      };
+
+      setOrders(prev =>
+        prev.map(order => (order.id === orderId ? parsed : order))
+      );
+
+      addNotification('info', `Exchange ticket marked as "${exchangeStatus}"`);
+      return parsed;
+    } catch (err) {
+      addNotification('error', err.message || 'Failed to process exchange ticket.');
+      throw err;
     }
   };
 
@@ -847,6 +986,8 @@ export const AppProvider = ({ children }) => {
         payOrder,
         triggerMpesaPush,
         updateOrderStatus,
+        requestSizeExchange,
+        updateExchangeStatus,
         coupons,
         addCoupon,
         activeCoupon,

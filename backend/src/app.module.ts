@@ -201,7 +201,8 @@ export class AppModule implements OnModuleInit {
         reorderThreshold: 5,
         brand: 'Sportsman',
         imageUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=500&auto=format&fit=crop&q=60',
-        warehouseLocation: 'Aisle A - Row 1'
+        warehouseLocation: 'Aisle A - Row 1',
+        sizes: JSON.stringify(['Size 4', 'Size 5']),
       },
       {
         id: 'prod-2',
@@ -213,7 +214,8 @@ export class AppModule implements OnModuleInit {
         reorderThreshold: 5,
         brand: 'Sportsman',
         imageUrl: 'https://images.unsplash.com/photo-1577223625816-7546f13df25d?w=500&auto=format&fit=crop&q=60',
-        warehouseLocation: 'Aisle A - Row 3'
+        warehouseLocation: 'Aisle A - Row 3',
+        sizes: JSON.stringify(['S', 'M', 'L', 'XL', 'XXL']),
       },
       {
         id: 'prod-3',
@@ -225,7 +227,8 @@ export class AppModule implements OnModuleInit {
         reorderThreshold: 3,
         brand: 'Spalding',
         imageUrl: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=500&auto=format&fit=crop&q=60',
-        warehouseLocation: 'Aisle B - Row 2'
+        warehouseLocation: 'Aisle B - Row 2',
+        sizes: JSON.stringify(['Size 6', 'Size 7']),
       },
       {
         id: 'prod-4',
@@ -237,7 +240,8 @@ export class AppModule implements OnModuleInit {
         reorderThreshold: 5,
         brand: 'Sportsman',
         imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&auto=format&fit=crop&q=60',
-        warehouseLocation: 'Aisle C - Row 4'
+        warehouseLocation: 'Aisle C - Row 4',
+        sizes: JSON.stringify(['UK 7', 'UK 8', 'UK 9', 'UK 10', 'UK 11']),
       },
       {
         id: 'prod-5',
@@ -249,7 +253,8 @@ export class AppModule implements OnModuleInit {
         reorderThreshold: 2,
         brand: 'Donic',
         imageUrl: 'https://images.unsplash.com/photo-1609710223199-14b36c6ca5d4?w=500&auto=format&fit=crop&q=60',
-        warehouseLocation: 'Zone D - Shelf 1'
+        warehouseLocation: 'Zone D - Shelf 1',
+        sizes: JSON.stringify(['Standard 9x5ft']),
       },
       {
         id: 'prod-6',
@@ -261,7 +266,8 @@ export class AppModule implements OnModuleInit {
         reorderThreshold: 4,
         brand: 'Butterfly',
         imageUrl: 'https://images.unsplash.com/photo-1511067007398-7e4b90cfa4bc?w=500&auto=format&fit=crop&q=60',
-        warehouseLocation: 'Aisle B - Row 4'
+        warehouseLocation: 'Aisle B - Row 4',
+        sizes: JSON.stringify(['Flare Handle', 'Straight Handle']),
       },
       {
         id: 'prod-7',
@@ -273,7 +279,8 @@ export class AppModule implements OnModuleInit {
         reorderThreshold: 10,
         brand: 'Donic',
         imageUrl: 'https://images.unsplash.com/photo-1620987278429-ca18c53d279d?w=500&auto=format&fit=crop&q=60',
-        warehouseLocation: 'Aisle B - Row 5'
+        warehouseLocation: 'Aisle B - Row 5',
+        sizes: JSON.stringify(['12-Pack', '24-Pack']),
       },
       {
         id: 'prod-8',
@@ -285,7 +292,8 @@ export class AppModule implements OnModuleInit {
         reorderThreshold: 3,
         brand: 'Sportsman',
         imageUrl: 'https://images.unsplash.com/photo-1519766304817-4f37bda74a27?w=500&auto=format&fit=crop&q=60',
-        warehouseLocation: 'Aisle B - Row 3'
+        warehouseLocation: 'Aisle B - Row 3',
+        sizes: JSON.stringify(['Standard 12-Loop']),
       }
     ];
 

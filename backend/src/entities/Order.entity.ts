@@ -31,6 +31,12 @@ export class Order {
   @Column()
   subCounty: string;
 
+  @Column({ nullable: true, default: 'Nairobi' })
+  county: string;
+
+  @Column({ type: 'float', default: 200 })
+  shippingFee: number;
+
   @Column({ type: 'float' })
   subtotal: number;
 
@@ -39,6 +45,9 @@ export class Order {
 
   @Column({ type: 'float' })
   totalAmount: number;
+
+  @Column({ type: 'text', nullable: true })
+  exchangeRequestJson: string;
 
   @Column({ nullable: true })
   couponApplied: string;

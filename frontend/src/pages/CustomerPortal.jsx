@@ -30,17 +30,91 @@ import {
   FileText,
   Printer,
   Building,
-  Download
+  Download,
+  RefreshCw
 } from 'lucide-react';
 
-const NAIROBI_SUB_COUNTIES = [
-  'Westlands',
-  'Kilimani / Lavington',
-  'Karen / Langata',
-  'CBD / Nairobi Central',
-  'Embakasi / Eastlands',
-  'Kasarani / Roysambu',
-  'Gigiri / Runda'
+const KENYA_COUNTY_TIERS = [
+  {
+    county: 'Nairobi',
+    areas: [
+      { name: 'Nairobi CBD / Central', fee: 200 },
+      { name: 'Westlands / Parklands', fee: 350 },
+      { name: 'Kilimani / Lavington / Kileleshwa', fee: 350 },
+      { name: 'Karen / Langata', fee: 350 },
+      { name: 'Embakasi / Eastlands / Donholm', fee: 350 },
+      { name: 'Kasarani / Roysambu / TRM', fee: 350 },
+      { name: 'Gigiri / Runda / Muthaiga', fee: 350 },
+      { name: 'South B / South C', fee: 350 }
+    ]
+  },
+  {
+    county: 'Kiambu (Metropolitan)',
+    areas: [
+      { name: 'Thika Town', fee: 400 },
+      { name: 'Ruiru / Juja', fee: 400 },
+      { name: 'Kikuyu / Wangige', fee: 400 },
+      { name: 'Kiambu Town', fee: 400 }
+    ]
+  },
+  {
+    county: 'Machakos',
+    areas: [
+      { name: 'Syokimau / Mlolongo', fee: 400 },
+      { name: 'Athi River / Mavoko', fee: 400 },
+      { name: 'Machakos Town', fee: 450 }
+    ]
+  },
+  {
+    county: 'Kajiado',
+    areas: [
+      { name: 'Kitengela', fee: 400 },
+      { name: 'Ongata Rongai', fee: 400 },
+      { name: 'Ngong Town', fee: 400 }
+    ]
+  },
+  {
+    county: 'Mombasa / Coast',
+    areas: [
+      { name: 'Mombasa CBD / Island', fee: 500 },
+      { name: 'Nyali / Bamburi', fee: 500 },
+      { name: 'Kilifi / Malindi', fee: 550 },
+      { name: 'Diani / Ukunda', fee: 550 }
+    ]
+  },
+  {
+    county: 'Nakuru / Rift Valley',
+    areas: [
+      { name: 'Nakuru City', fee: 500 },
+      { name: 'Naivasha', fee: 450 },
+      { name: 'Gilgil / Njoro', fee: 500 }
+    ]
+  },
+  {
+    county: 'Kisumu / Lake Basin',
+    areas: [
+      { name: 'Kisumu City / Central', fee: 550 },
+      { name: 'Milimani / Kondele', fee: 550 },
+      { name: 'Maseno', fee: 600 }
+    ]
+  },
+  {
+    county: 'Uasin Gishu / North Rift',
+    areas: [
+      { name: 'Eldoret City', fee: 550 },
+      { name: 'Pioneer / Langas', fee: 550 }
+    ]
+  },
+  {
+    county: 'Upcountry Parcel (Other Counties)',
+    areas: [
+      { name: 'Nyeri / Karatina', fee: 550 },
+      { name: 'Meru / Embu', fee: 550 },
+      { name: 'Kisii / Homa Bay / Migori', fee: 600 },
+      { name: 'Kakamega / Bungoma / Busia', fee: 600 },
+      { name: 'Garissa / Isiolo / Northern Kenya', fee: 700 }
+    ]
+  }
 ];
 
 export default function CustomerPortal() {
@@ -56,6 +130,7 @@ export default function CustomerPortal() {
     createOrder,
     payOrder,
     triggerMpesaPush,
+    requestSizeExchange,
     activeCoupon,
     applyCoupon,
     API_BASE,
@@ -80,9 +155,23 @@ export default function CustomerPortal() {
   const navigate = useNavigate();
   const showActiveTab = location.pathname === '/tracker' ? 'tracker' : location.pathname === '/receipts' ? 'receipts' : location.pathname === '/quotations' ? 'quotations' : 'shop';
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [activeModalSize, setActiveModalSize] = useState(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [activeTrackingOrder, setActiveTrackingOrder] = useState(null);
+
+  // Size Exchange Modal state
+  const [isExchangeModalOpen, setIsExchangeModalOpen] = useState(false);
+  const [exchangeOrder, setExchangeOrder] = useState(null);
+  const [exchangeItem, setExchangeItem] = useState(null);
+  const [exchangeRequestedSize, setExchangeRequestedSize] = useState('');
+  const [exchangeReason, setExchangeReason] = useState('Too small / tight fit');
+  const [exchangeNotes, setExchangeNotes] = useState('');
+  const [exchangeSubmitting, setExchangeSubmitting] = useState(false);
+
+  // Dynamic Shipping Tier Selection
+  const [selectedCounty, setSelectedCounty] = useState('Nairobi');
+  const [selectedArea, setSelectedArea] = useState('Nairobi CBD / Central');
 
   // Quotation State
   const [isQuotationModalOpen, setIsQuotationModalOpen] = useState(false);
@@ -98,8 +187,7 @@ export default function CustomerPortal() {
     name: '',
     email: '',
     phone: '',
-    address: '',
-    subCounty: NAIROBI_SUB_COUNTIES[0]
+    address: ''
   });
   const [paymentMethod, setPaymentMethod] = useState('WhatsApp');
 
@@ -333,6 +421,15 @@ export default function CustomerPortal() {
 
   const cartTotal = cartSubtotal - cartDiscount;
 
+  // Current shipping fee calculated dynamically from County & Area tier
+  const currentShippingFee = useMemo(() => {
+    const countyObj = KENYA_COUNTY_TIERS.find(c => c.county === selectedCounty) || KENYA_COUNTY_TIERS[0];
+    const areaObj = countyObj.areas.find(a => a.name === selectedArea) || countyObj.areas[0];
+    return areaObj ? areaObj.fee : 200;
+  }, [selectedCounty, selectedArea]);
+
+  const grandTotalPayable = cartTotal + currentShippingFee;
+
   // Handle Coupon Submit
   const handleApplyCoupon = (e) => {
     e.preventDefault();
@@ -358,42 +455,94 @@ export default function CustomerPortal() {
       return;
     }
 
-    const order = await createOrder(customerInfo, paymentMethod);
+    const orderPayload = {
+      ...customerInfo,
+      county: selectedCounty,
+      subCounty: selectedArea,
+      shippingFee: currentShippingFee
+    };
+
+    const order = await createOrder(orderPayload, paymentMethod);
     if (!order) return; // Cart stock error
 
     setIsCheckoutOpen(false);
 
     if (paymentMethod === 'WhatsApp') {
-      // Clear cart locally
       clearCart();
 
       // Build structured text for WhatsApp ordering
-      let message = `New Order Request\n\n`;
-      message += `Customer:\n`;
+      let message = `New Order Request (Sportsman.ke)\n\n`;
+      message += `Customer Details:\n`;
       message += `Name: ${customerInfo.name}\n`;
-      message += `Email: ${customerInfo.email}\n`;
-      message += `Phone: ${customerInfo.phone}\n\n`;
+      message += `Phone: ${customerInfo.phone}\n`;
+      message += `County: ${selectedCounty}\n`;
+      message += `Town / Area: ${selectedArea}\n`;
+      message += `Address: ${customerInfo.address}\n\n`;
       
-      message += `Products:\n`;
+      message += `Ordered Products:\n`;
       order.items.forEach((item, index) => {
-        message += `${index + 1}. ${item.product.name} - Qty: ${item.quantity} - KES ${item.product.price.toLocaleString()}\n`;
+        message += `${index + 1}. ${item.product?.name || 'Item'} (Size: ${item.selectedSize || 'Standard'}) - Qty: ${item.quantity} - KES ${((item.product?.price || 0) * item.quantity).toLocaleString()}\n`;
       });
-      message += `\nTotal:\n`;
-      message += `KES ${order.totalAmount.toLocaleString()}\n\n`;
-      message += `Please process this order.`;
+      message += `\nSubtotal: KES ${cartSubtotal.toLocaleString()}\n`;
+      if (cartDiscount > 0) message += `Discount (${activeCoupon?.code}): -KES ${cartDiscount.toLocaleString()}\n`;
+      message += `Delivery Fee (${selectedCounty}): KES ${currentShippingFee.toLocaleString()}\n`;
+      message += `Grand Total: KES ${order.totalAmount.toLocaleString()}\n\n`;
+      message += `Please process and dispatch this order.`;
 
-      // Redirect to Admin WhatsApp line
       const whatsappNumber = '254759238018';
       const url = `https://api.whatsapp.com/send?phone=${whatsappNumber}&text=${encodeURIComponent(message)}`;
       window.open(url, '_blank');
 
-      // Go to shipment/order tracker page
       setActiveTrackingOrder(order.id);
       navigate('/tracker');
     } else {
-      // Standard Card / Bank transfer payments instantly paid
       setActiveTrackingOrder(order.id);
       navigate('/tracker');
+    }
+  };
+
+  // Open Size Exchange Modal for a completed/delivered order
+  const openExchangeModal = (order) => {
+    setExchangeOrder(order);
+    const firstItem = (order.items && order.items[0]) || null;
+    setExchangeItem(firstItem);
+    setExchangeRequestedSize('');
+    setExchangeReason('Too small / tight fit');
+    setExchangeNotes('');
+    setIsExchangeModalOpen(true);
+  };
+
+  // Submit Size Exchange Ticket
+  const handleExchangeSubmit = async (e) => {
+    e.preventDefault();
+    if (!exchangeOrder || !exchangeItem) return;
+    if (!exchangeRequestedSize.trim()) {
+      alert('Please specify the replacement size you require.');
+      return;
+    }
+
+    setExchangeSubmitting(true);
+    try {
+      await requestSizeExchange(exchangeOrder.id, {
+        items: [
+          {
+            productId: exchangeItem.product?.id,
+            productName: exchangeItem.product?.name,
+            currentSize: exchangeItem.selectedSize || 'Standard',
+            requestedSize: exchangeRequestedSize.trim(),
+            quantity: exchangeItem.quantity || 1
+          }
+        ],
+        requestedSize: exchangeRequestedSize.trim(),
+        reason: exchangeReason,
+        customerNotes: exchangeNotes.trim()
+      });
+      setIsExchangeModalOpen(false);
+      setExchangeOrder(null);
+    } catch (err) {
+      alert(err.message || 'Failed to submit size exchange request.');
+    } finally {
+      setExchangeSubmitting(false);
     }
   };
 
@@ -1173,7 +1322,17 @@ export default function CustomerPortal() {
                         </div>
                         <p className="text-[10px] text-slate-500 mt-1">Order Date: {dateStr}</p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {order.status !== 'Cancelled' && (
+                          <button
+                            onClick={() => openExchangeModal(order)}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl transition-all duration-200 cursor-pointer shadow-md shadow-indigo-600/20 flex items-center gap-1.5"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            <span>Request Size Exchange</span>
+                          </button>
+                        )}
+
                         {order.status !== 'Pending Payment' && order.status !== 'Cancelled' ? (
                           currentUser?.role === 'admin' ? (
                             <button
@@ -1200,13 +1359,48 @@ export default function CustomerPortal() {
                       </div>
                     </div>
 
+                    {/* Size Exchange Ticket Notification Banner */}
+                    {(() => {
+                      if (!order.exchangeRequestJson) return null;
+                      let exTicket = null;
+                      try { exTicket = JSON.parse(order.exchangeRequestJson); } catch (e) {}
+                      if (!exTicket) return null;
+
+                      return (
+                        <div className="bg-indigo-950/40 border border-indigo-500/30 p-3.5 rounded-xl space-y-1.5 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="font-black text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Size Exchange Ticket #{exTicket.ticketId || order.id}
+                            </span>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                              exTicket.status === 'Approved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                              exTicket.status === 'Completed' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' :
+                              exTicket.status === 'Rejected' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                              'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                            }`}>
+                              {exTicket.status || 'Pending Warehouse Review'}
+                            </span>
+                          </div>
+                          <p className="text-slate-300 font-medium m-0">
+                            Requested Replacement Size: <strong className="text-white underline">{exTicket.requestedSize}</strong>
+                          </p>
+                          {exTicket.reason && (
+                            <p className="text-slate-400 text-[11px] m-0">Reason: {exTicket.reason} {exTicket.customerNotes ? `("${exTicket.customerNotes}")` : ''}</p>
+                          )}
+                          {exTicket.staffNotes && (
+                            <p className="text-indigo-300 italic text-[11px] m-0">Warehouse Update: {exTicket.staffNotes}</p>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     {/* Customer & Address Details */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-slate-400 py-1">
                       <div>
                         <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">Deliver To</span>
                         <span className="text-white font-extrabold block mt-0.5">{order.customerName}</span>
                         <span className="block mt-0.5">{order.phone}</span>
-                        <span className="block font-semibold">{order.subCounty}, Nairobi</span>
+                        <span className="block font-semibold">{order.subCounty || 'Nairobi Central'}, {order.county || 'Nairobi'}</span>
                         <span className="block italic text-[11px] mt-0.5">{order.deliveryAddress}</span>
                       </div>
                       <div>
@@ -1221,6 +1415,11 @@ export default function CustomerPortal() {
                         {order.discountAmount > 0 && (
                           <span className="block text-emerald-400">
                             Discount ({order.couponApplied}): - KES {order.discountAmount.toLocaleString()}
+                          </span>
+                        )}
+                        {Number(order.shippingFee) > 0 && (
+                          <span className="block text-slate-300">
+                            Shipping Fee: KES {Number(order.shippingFee).toLocaleString()}
                           </span>
                         )}
                       </div>
@@ -1242,7 +1441,12 @@ export default function CustomerPortal() {
                             <tr key={item.product.id} className="text-slate-300">
                               <td className="py-2.5">
                                 <span className="font-bold text-slate-200">{item.product.name}</span>
-                                <span className="text-[10px] text-slate-500 block">Brand: {item.product.brand}</span>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-[10px] text-slate-500">Brand: {item.product.brand}</span>
+                                  <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/20">
+                                    Size: {item.selectedSize || 'Standard'}
+                                  </span>
+                                </div>
                               </td>
                               <td className="py-2.5 text-center font-semibold">{item.quantity}</td>
                               <td className="py-2.5 text-right font-semibold">KES {item.product.price.toLocaleString()}</td>
@@ -1532,13 +1736,64 @@ export default function CustomerPortal() {
                       </span>
                     </div>
                   </div>
+
+                  {/* Size Selector Button Group */}
+                  {(() => {
+                    let availableSizes = [];
+                    try {
+                      availableSizes = Array.isArray(selectedProduct.sizes)
+                        ? selectedProduct.sizes
+                        : JSON.parse(selectedProduct.sizes || '["Standard"]');
+                    } catch {
+                      availableSizes = ['Standard'];
+                    }
+                    if (!availableSizes || availableSizes.length === 0) availableSizes = ['Standard'];
+                    const currentChosenSize = activeModalSize || availableSizes[0];
+
+                    return (
+                      <div className="space-y-2 text-left pt-2 border-t border-slate-900">
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                            Select Size / Fit:
+                          </label>
+                          <span className="text-[10px] font-black text-orange-400 font-mono bg-orange-500/10 px-2 py-0.5 rounded border border-orange-500/20">
+                            {currentChosenSize}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {availableSizes.map(sz => (
+                            <button
+                              key={sz}
+                              type="button"
+                              onClick={() => setActiveModalSize(sz)}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer border ${
+                                currentChosenSize === sz
+                                  ? 'bg-orange-500 text-white border-orange-400 shadow-md shadow-orange-500/20 scale-105'
+                                  : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700'
+                              }`}
+                            >
+                              {sz}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <button
                   onClick={() => {
                     if (selectedProduct.stockQuantity > 0) {
-                      addToCart(selectedProduct, 1);
+                      let availableSizes = ['Standard'];
+                      try {
+                        availableSizes = Array.isArray(selectedProduct.sizes)
+                          ? selectedProduct.sizes
+                          : JSON.parse(selectedProduct.sizes || '["Standard"]');
+                      } catch (e) {}
+                      const sizeToAdd = activeModalSize || availableSizes[0] || 'Standard';
+                      addToCart(selectedProduct, 1, sizeToAdd);
                       setSelectedProduct(null);
+                      setActiveModalSize(null);
                     }
                   }}
                   disabled={selectedProduct.stockQuantity === 0}
@@ -1610,28 +1865,33 @@ export default function CustomerPortal() {
                   </button>
                 </div>
               ) : (
-                cart.map(item => (
-                  <div key={item.product.id} className="flex gap-4 bg-slate-900/40 border border-slate-850/80 p-4 rounded-xl">
+                cart.map((item, idx) => (
+                  <div key={`${item.product.id}-${item.selectedSize || 'std'}-${idx}`} className="flex gap-4 bg-slate-900/40 border border-slate-850/80 p-4 rounded-xl">
                     <div className="w-16 h-16 bg-slate-950 rounded-lg overflow-hidden shrink-0">
                       <img src={item.product.imageUrl} className="w-full h-full object-cover" alt="" />
                     </div>
                     <div className="flex-1 flex flex-col justify-between text-left">
                       <div>
                         <h4 className="text-xs font-bold text-white line-clamp-1 m-0">{item.product.name}</h4>
-                        <span className="text-[10px] text-slate-500 uppercase font-bold mt-0.5 block">{item.product.brand}</span>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className="text-[10px] text-slate-500 uppercase font-bold">{item.product.brand}</span>
+                          <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/20">
+                            Size: {item.selectedSize || 'Standard'}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex items-center justify-between mt-2">
                         {/* Qty selectors */}
                         <div className="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-850 scale-90">
                           <button
-                            onClick={() => updateCartQuantity(item.product.id, item.quantity - 1)}
+                            onClick={() => updateCartQuantity(item.product.id, item.quantity - 1, item.selectedSize)}
                             className="p-1 hover:text-orange-500 text-slate-400 cursor-pointer"
                           >
                             <Minus className="w-3 h-3" />
                           </button>
                           <span className="text-xs font-bold text-white px-2.5">{item.quantity}</span>
                           <button
-                            onClick={() => updateCartQuantity(item.product.id, item.quantity + 1)}
+                            onClick={() => updateCartQuantity(item.product.id, item.quantity + 1, item.selectedSize)}
                             className="p-1 hover:text-orange-500 text-slate-400 cursor-pointer"
                           >
                             <Plus className="w-3 h-3" />
@@ -1641,7 +1901,7 @@ export default function CustomerPortal() {
                       </div>
                     </div>
                     <button
-                      onClick={() => removeFromCart(item.product.id)}
+                      onClick={() => removeFromCart(item.product.id, item.selectedSize)}
                       className="text-slate-600 hover:text-red-500 transition-colors p-1 self-start cursor-pointer"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -1793,20 +2053,50 @@ export default function CustomerPortal() {
                   </div>
                 </div>
 
-                {/* Nairobi Subcounty Selection */}
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">Nairobi Sub-County</label>
-                  <div className="relative">
-                    <Map className="w-3.5 h-3.5 text-slate-600 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <select
-                      value={customerInfo.subCounty}
-                      onChange={(e) => setCustomerInfo({ ...customerInfo, subCounty: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-800 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white focus:outline-none"
-                    >
-                      {NAIROBI_SUB_COUNTIES.map(sc => (
-                        <option key={sc} value={sc} className="bg-slate-900">{sc}</option>
-                      ))}
-                    </select>
+                {/* County and Town/Area Selector with Dynamic Shipping Fee */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">County</label>
+                    <div className="relative">
+                      <Map className="w-3.5 h-3.5 text-slate-600 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <select
+                        value={selectedCounty}
+                        onChange={(e) => {
+                          const newCounty = e.target.value;
+                          setSelectedCounty(newCounty);
+                          const countyObj = KENYA_COUNTY_TIERS.find(c => c.county === newCounty);
+                          if (countyObj && countyObj.areas.length > 0) {
+                            setSelectedArea(countyObj.areas[0].name);
+                          }
+                        }}
+                        className="w-full bg-slate-900 border border-slate-800 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white focus:outline-none cursor-pointer"
+                      >
+                        {KENYA_COUNTY_TIERS.map(c => (
+                          <option key={c.county} value={c.county} className="bg-slate-900">{c.county}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">Town / Specific Area</label>
+                    <div className="relative">
+                      <MapPin className="w-3.5 h-3.5 text-slate-600 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <select
+                        value={selectedArea}
+                        onChange={(e) => setSelectedArea(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-800 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white focus:outline-none cursor-pointer"
+                      >
+                        {(() => {
+                          const countyObj = KENYA_COUNTY_TIERS.find(c => c.county === selectedCounty) || KENYA_COUNTY_TIERS[0];
+                          return countyObj.areas.map(a => (
+                            <option key={a.name} value={a.name} className="bg-slate-900">
+                              {a.name} (KES {a.fee})
+                            </option>
+                          ));
+                        })()}
+                      </select>
+                    </div>
                   </div>
                 </div>
 
@@ -1816,11 +2106,33 @@ export default function CustomerPortal() {
                   <textarea
                     required
                     rows="2"
-                    placeholder="Apt/Suite, Street, Building Name..."
+                    placeholder="Street, Building, Apartment, Gate Number..."
                     value={customerInfo.address}
                     onChange={(e) => setCustomerInfo({ ...customerInfo, address: e.target.value })}
                     className="w-full bg-slate-900 border border-slate-800 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 rounded-xl px-3.5 py-2.5 text-xs text-white"
                   ></textarea>
+                </div>
+
+                {/* Dynamic Price Breakdown Box */}
+                <div className="bg-slate-950/70 border border-slate-900 rounded-xl p-3 space-y-1.5 text-xs">
+                  <div className="flex justify-between text-slate-400">
+                    <span>Subtotal:</span>
+                    <span className="font-mono text-slate-300">KES {cartSubtotal.toLocaleString()}</span>
+                  </div>
+                  {cartDiscount > 0 && (
+                    <div className="flex justify-between text-emerald-400">
+                      <span>Discount ({activeCoupon?.code}):</span>
+                      <span className="font-mono">- KES {cartDiscount.toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-orange-400 font-bold">
+                    <span>Delivery Fee ({selectedCounty} &bull; {selectedArea}):</span>
+                    <span className="font-mono">KES {currentShippingFee.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-black text-white pt-1.5 border-t border-slate-900">
+                    <span>Total Payable:</span>
+                    <span className="text-orange-500">KES {grandTotalPayable.toLocaleString()}</span>
+                  </div>
                 </div>
 
                 {/* Payment Option Selector */}
@@ -1849,7 +2161,6 @@ export default function CustomerPortal() {
 
                 {paymentMethod === 'M-Pesa' ? (
                   <div className="p-5 bg-slate-950/80 border border-slate-850 rounded-2xl space-y-3.5 text-center animate-fade-in">
-                    {/* Modern construction / building loading animation */}
                     <div className="flex items-center justify-center space-x-2.5 py-1">
                       <div className="w-2.5 h-2.5 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
                       <div className="w-2.5 h-2.5 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
@@ -1867,7 +2178,7 @@ export default function CustomerPortal() {
                   <div className="pt-4 border-t border-slate-900 flex items-center justify-between gap-4">
                     <div className="text-left">
                       <span className="text-[9px] text-slate-500 block uppercase font-bold">Payable Total</span>
-                      <span className="text-sm font-black text-orange-500">KES {cartTotal.toLocaleString()}</span>
+                      <span className="text-sm font-black text-orange-500">KES {grandTotalPayable.toLocaleString()}</span>
                     </div>
                     <button
                       type="submit"
@@ -2295,6 +2606,99 @@ export default function CustomerPortal() {
           WhatsApp Support
         </span>
       </a>
+
+      {/* SIZE EXCHANGE TICKET MODAL */}
+      {isExchangeModalOpen && exchangeOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md bg-[#0D1321] border border-indigo-500/40 rounded-3xl p-6 md:p-8 text-left shadow-2xl relative space-y-5">
+            <button
+              onClick={() => setIsExchangeModalOpen(false)}
+              className="absolute top-4 right-4 bg-slate-950/70 border border-slate-850 p-2 rounded-full text-slate-400 hover:text-white transition-all cursor-pointer z-10"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-2 pb-2 border-b border-slate-900">
+              <RefreshCw className="w-5 h-5 text-indigo-400 animate-spin" />
+              <div>
+                <h3 className="text-base font-black text-white uppercase tracking-tight m-0">Request Size Exchange</h3>
+                <span className="text-[10px] text-slate-400">Order Ref: {exchangeOrder.id}</span>
+              </div>
+            </div>
+
+            <form onSubmit={handleExchangeSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">Select Item to Exchange</label>
+                <select
+                  value={exchangeItem?.product?.id || ''}
+                  onChange={(e) => {
+                    const found = exchangeOrder.items.find(i => i.product?.id === e.target.value);
+                    setExchangeItem(found || exchangeOrder.items[0]);
+                  }}
+                  className="w-full bg-slate-900 border border-slate-800 text-white rounded-xl p-2.5 text-xs focus:border-indigo-500 focus:outline-none cursor-pointer"
+                >
+                  {(exchangeOrder.items || []).map((it, idx) => (
+                    <option key={idx} value={it.product?.id}>
+                      {it.product?.name} (Current: {it.selectedSize || 'Standard'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">Requested Replacement Size</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. UK 8, UK 9, XL, XXL, Size 5..."
+                  value={exchangeRequestedSize}
+                  onChange={(e) => setExchangeRequestedSize(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 text-white rounded-xl p-2.5 text-xs focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">Reason for Size Exchange</label>
+                <select
+                  value={exchangeReason}
+                  onChange={(e) => setExchangeReason(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 text-white rounded-xl p-2.5 text-xs focus:border-indigo-500 focus:outline-none cursor-pointer"
+                >
+                  <option value="Too small / tight fit">Too small / tight fit</option>
+                  <option value="Too large / loose fit">Too large / loose fit</option>
+                  <option value="Wrong size received">Wrong size received</option>
+                  <option value="Prefer different variant">Prefer different variant</option>
+                  <option value="Gift exchange">Gift exchange</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">Additional Warehouse Notes</label>
+                <textarea
+                  rows="2"
+                  placeholder="Tell our warehouse team any specific fitting instructions..."
+                  value={exchangeNotes}
+                  onChange={(e) => setExchangeNotes(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 text-white rounded-xl p-2.5 text-xs focus:border-indigo-500 focus:outline-none"
+                ></textarea>
+              </div>
+
+              <div className="bg-indigo-950/30 border border-indigo-500/20 rounded-xl p-3 text-[11px] text-slate-300">
+                ℹ️ Our warehouse staff will review your exchange ticket, reserve your replacement size from inventory, and dispatch it via courier.
+              </div>
+
+              <button
+                type="submit"
+                disabled={exchangeSubmitting}
+                className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 cursor-pointer disabled:opacity-50"
+              >
+                <span>{exchangeSubmitting ? 'Submitting Ticket...' : 'Submit Exchange Ticket to Warehouse'}</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Quotation Creator Modal */}
       <QuotationModal

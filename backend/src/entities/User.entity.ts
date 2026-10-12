@@ -29,6 +29,12 @@ export class User {
   verificationToken: string;
 
   @Column({ nullable: true })
+  resetPasswordToken: string;
+
+  @Column({ nullable: true })
+  resetPasswordExpires: string;
+
+  @Column({ nullable: true })
   createdAt: string;
 
   @OneToMany(() => Order, order => order.user)

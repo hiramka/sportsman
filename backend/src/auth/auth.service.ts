@@ -185,5 +185,61 @@ export class AuthService {
     const payload = { sub: user.id, email: user.email, role: user.role, phone: user.phone, name: user.name };
     return this.jwtService.sign(payload);
   }
+
+  async forgotPassword(email: string) {
+    if (!email) {
+      throw new BadRequestException('Email address is required.');
+    }
+    const cleanEmail = email.toLowerCase().trim();
+    const user = await this.userRepository.findOne({ where: { email: cleanEmail } });
+    if (!user) {
+      return { success: true, message: 'If an account exists with that email, a password reset link has been dispatched.' };
+    }
+
+    const resetToken = Math.random().toString(36).substring(2, 8).toUpperCase() + '-' + Date.now().toString(36).toUpperCase();
+    const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour expiry
+
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpires = expires;
+    await this.userRepository.save(user);
+
+    await this.mailService.sendPasswordResetEmail(user.email, user.name, resetToken);
+
+    return {
+      success: true,
+      message: 'Password reset link sent to your email address.',
+      resetToken, // Returned for instant testing/fallback
+    };
+  }
+
+  async resetPassword(resetDto: { token: string; email?: string; newPassword: string }) {
+    const { token, email, newPassword } = resetDto;
+    if (!token || !newPassword) {
+      throw new BadRequestException('Reset token and new password are required.');
+    }
+    if (newPassword.length < 6) {
+      throw new BadRequestException('New password must be at least 6 characters long.');
+    }
+
+    const cleanToken = token.trim();
+    const user = await this.userRepository.findOne({
+      where: email ? { email: email.toLowerCase().trim(), resetPasswordToken: cleanToken } : { resetPasswordToken: cleanToken }
+    });
+
+    if (!user) {
+      throw new BadRequestException('Invalid or expired password reset token.');
+    }
+
+    if (user.resetPasswordExpires && new Date(user.resetPasswordExpires) < new Date()) {
+      throw new BadRequestException('Password reset token has expired. Please request a new link.');
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    await this.userRepository.save(user);
+
+    return { success: true, message: 'Password has been reset successfully. You can now sign in.' };
+  }
 }
 

@@ -285,8 +285,46 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const forgotPassword = async (email) => {
+    try {
+      const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+        credentials: 'include'
+      });
+      const data = await parseJsonOrText(res);
+      if (!res.ok) {
+        throw new Error(data?.message || 'Failed to request password reset.');
+      }
+      return data;
+    } catch (err) {
+      console.warn('Backend forgot-password error:', err);
+      throw err;
+    }
+  };
+
+  const resetPassword = async (token, email, newPassword) => {
+    try {
+      const res = await fetch(`${API_BASE}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: token.trim(), email: email.trim().toLowerCase(), newPassword }),
+        credentials: 'include'
+      });
+      const data = await parseJsonOrText(res);
+      if (!res.ok) {
+        throw new Error(data?.message || 'Failed to reset password.');
+      }
+      return data;
+    } catch (err) {
+      console.warn('Backend reset-password error:', err);
+      throw err;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, authLoading, login, signup, logout, fetchProfile }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, authLoading, login, signup, logout, fetchProfile, forgotPassword, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );

@@ -79,6 +79,16 @@ export class AuthController {
     return result;
   }
 
+  @Post('forgot-password')
+  async forgotPassword(@Body() body: { email: string }) {
+    return this.authService.forgotPassword(body.email);
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() body: { token: string; email?: string; newPassword: string }) {
+    return this.authService.resetPassword(body);
+  }
+
   @Get('me')
   @UseGuards(AuthGuard)
   async getProfile(@Req() req: any) {

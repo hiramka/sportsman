@@ -229,6 +229,78 @@ export class MailService {
     return false;
   }
 
+  async sendPasswordResetEmail(email: string, name: string, token: string): Promise<boolean> {
+    const frontendUrl = (this.configService.get<string>('ALLOWED_ORIGINS') || 'https://sportsmanke.vercel.app').split(',')[0].trim();
+    const resetLink = `${frontendUrl}/login?resetToken=${token}&email=${encodeURIComponent(email)}`;
+    const fromAddress = this.configService.get<string>('SMTP_FROM') || '"Sportsman.ke" <noreply@sportsman.ke>';
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Reset Your Sportsman.ke Password</title>
+          <style>
+            body { margin: 0; padding: 0; background-color: #080B11; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #E2E8F0; }
+            .wrapper { width: 100%; background-color: #080B11; padding: 40px 0; }
+            .main-table { background-color: #0D1321; margin: 0 auto; width: 100%; max-width: 600px; border-radius: 16px; border: 1px solid rgba(255, 90, 31, 0.2); overflow: hidden; }
+            .header { background-color: #0F172A; padding: 25px; text-align: center; border-bottom: 1px solid rgba(255, 90, 31, 0.1); }
+            .logo { color: #FF5A1F; font-size: 24px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; text-decoration: none; }
+            .content { padding: 35px 30px; text-align: left; }
+            .btn { display: inline-block; background: linear-gradient(135deg, #FF5A1F 0%, #EF4444 100%); color: #ffffff !important; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 800; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+            .code-box { background: #080B11; border: 1px dashed #FF5A1F; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 16px; color: #FF5A1F; text-align: center; margin: 20px 0; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="wrapper">
+            <table class="main-table">
+              <tr><td class="header"><span class="logo">SPORTSMAN.KE</span></td></tr>
+              <tr>
+                <td class="content">
+                  <h2 style="color: #ffffff; margin-top: 0;">Password Reset Request</h2>
+                  <p>Hi ${name || 'Athlete'},</p>
+                  <p>We received a request to reset your password for your Sportsman.ke account. Click the button below to choose a new password (link is valid for 1 hour):</p>
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="${resetLink}" class="btn">Reset Password</a>
+                  </div>
+                  <p style="font-size: 12px; color: #94A3B8;">Or use your reset token directly on the login screen:</p>
+                  <div class="code-box">${token}</div>
+                  <p style="font-size: 11px; color: #64748B;">If you did not request a password reset, you can safely ignore this email.</p>
+                </td>
+              </tr>
+            </table>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const isReady = await this.ready;
+    if (isReady && this.transporter) {
+      try {
+        await this.transporter.sendMail({
+          from: fromAddress,
+          to: email,
+          subject: 'Reset your Sportsman.ke Password',
+          html: htmlContent,
+        });
+        this.logger.log(`Password reset email sent to: ${email}`);
+        return true;
+      } catch (error) {
+        this.logger.error(`Failed to send password reset email via SMTP: ${error.message}`);
+      }
+    }
+
+    this.logger.log(`
+=================== PASSWORD RESET SIMULATOR ===================
+To: ${email}
+Token: ${token}
+Link: ${resetLink}
+================================================================
+    `);
+    return true;
+  }
+
   private logFallback(email: string, name: string, verificationLink: string) {
     this.logger.log(`
 =================== EMAIL VERIFICATION SIMULATOR ===================
