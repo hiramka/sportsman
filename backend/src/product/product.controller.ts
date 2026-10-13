@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, UseInterceptors, UploadedFile, BadRequestException, Header } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -16,6 +16,30 @@ export class ProductController {
   @Get()
   async getAllProducts() {
     return this.productService.findAll();
+  }
+
+  // Meta (Facebook / Instagram Shop) & Google Merchant XML Product Catalog Feed
+  @Get('meta-feed.xml')
+  @Header('Content-Type', 'application/xml; charset=utf-8')
+  async getMetaFeedXml() {
+    return this.productService.generateMetaFeedXml();
+  }
+
+  @Get('google-feed.xml')
+  @Header('Content-Type', 'application/xml; charset=utf-8')
+  async getGoogleFeedXml() {
+    return this.productService.generateMetaFeedXml();
+  }
+
+  // Meta & Google Merchant JSON Product Catalog Feed
+  @Get('meta-feed.json')
+  async getMetaFeedJson() {
+    return this.productService.generateMetaFeedJson();
+  }
+
+  @Get('google-feed.json')
+  async getGoogleFeedJson() {
+    return this.productService.generateMetaFeedJson();
   }
 
   @Get(':id')

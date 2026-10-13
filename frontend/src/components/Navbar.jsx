@@ -17,11 +17,12 @@ import {
   Lock,
   Layers,
   FileText,
-  Mail
+  Mail,
+  Heart
 } from 'lucide-react';
 
 export default function Navbar() {
-  const { cart, orders } = useContext(AppContext);
+  const { cart, orders, wishlist = [], setIsWishlistOpen } = useContext(AppContext);
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -197,7 +198,22 @@ export default function Navbar() {
       </nav>
 
       {/* User Actions & Dropdown */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 md:gap-3">
+        {/* Wishlist Button with Badge */}
+        <button
+          onClick={() => setIsWishlistOpen(true)}
+          className="relative flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 border border-slate-800 hover:border-red-500/50 text-slate-300 hover:text-red-400 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm group"
+          title="Open Saved Wishlist"
+        >
+          <Heart className={`w-3.5 h-3.5 transition-transform group-hover:scale-110 ${wishlist.length > 0 ? 'text-red-500 fill-red-500' : 'text-slate-400'}`} />
+          <span className="hidden sm:inline">Wishlist</span>
+          {wishlist.length > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-red-500 text-white shadow-sm">
+              {wishlist.length}
+            </span>
+          )}
+        </button>
+
         {/* Contact Support Button */}
         <button
           onClick={() => setIsContactOpen(true)}

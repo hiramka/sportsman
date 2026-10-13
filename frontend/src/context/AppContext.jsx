@@ -194,6 +194,17 @@ export const AppProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : DEFAULT_QUOTATIONS;
   });
 
+  // Personal Customer Wishlist state (persisted to localStorage)
+  const [wishlist, setWishlist] = useState(() => {
+    const saved = localStorage.getItem('sm_wishlist');
+    try {
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isWishlistOpen, setIsWishlistOpen] = useState(false);
+
   const [coupons, setCoupons] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [activeCoupon, setActiveCoupon] = useState(null);
@@ -389,6 +400,10 @@ export const AppProvider = ({ children }) => {
     localStorage.setItem('sm_orders', JSON.stringify(orders));
   }, [orders]);
 
+  useEffect(() => {
+    localStorage.setItem('sm_wishlist', JSON.stringify(wishlist));
+  }, [wishlist]);
+
   // Helper function to add alert notifications
   const addNotification = (type, message) => {
     const id = Date.now().toString() + Math.random().toString(36).substring(2, 5);
@@ -470,6 +485,73 @@ export const AppProvider = ({ children }) => {
   const clearCart = () => {
     setCart([]);
     setActiveCoupon(null);
+  };
+
+  // --- WISHLIST MANAGEMENT ---
+  const toggleWishlist = (product) => {
+    if (!product) return;
+    const exists = wishlist.some(item => item.id === product.id);
+    if (exists) {
+      setWishlist(prev => prev.filter(item => item.id !== product.id));
+      addNotification('info', `Removed "${product.name}" from your wishlist`);
+    } else {
+      setWishlist(prev => [product, ...prev]);
+      addNotification('success', `Saved "${product.name}" to your wishlist ❤️`);
+    }
+  };
+
+  const isInWishlist = (productId) => {
+    return wishlist.some(item => item.id === productId);
+  };
+
+  const removeFromWishlist = (productId) => {
+    const item = wishlist.find(i => i.id === productId);
+    setWishlist(prev => prev.filter(i => i.id !== productId));
+    if (item) {
+      addNotification('info', `Removed "${item.name}" from wishlist`);
+    }
+  };
+
+  const clearWishlist = () => {
+    setWishlist([]);
+    addNotification('info', 'Wishlist cleared');
+  };
+
+  // Payday Bulk Transfer: Move all items from Wishlist directly to Cart
+  const moveAllToCart = () => {
+    if (wishlist.length === 0) return 0;
+    const count = wishlist.length;
+
+    setCart(prevCart => {
+      let updatedCart = [...prevCart];
+      wishlist.forEach(product => {
+        let finalSize = 'Standard';
+        try {
+          const parsed = Array.isArray(product.sizes) ? product.sizes : JSON.parse(product.sizes || '[]');
+          finalSize = parsed[0] || 'Standard';
+        } catch {
+          finalSize = 'Standard';
+        }
+
+        const existingIndex = updatedCart.findIndex(
+          ci => ci.product.id === product.id && (ci.selectedSize || 'Standard') === finalSize
+        );
+        if (existingIndex > -1) {
+          updatedCart[existingIndex] = {
+            ...updatedCart[existingIndex],
+            quantity: updatedCart[existingIndex].quantity + 1
+          };
+        } else {
+          updatedCart.push({ product, quantity: 1, selectedSize: finalSize });
+        }
+      });
+      return updatedCart;
+    });
+
+    setWishlist([]);
+    setIsWishlistOpen(false);
+    addNotification('success', `🎉 Payday Move! ${count} item(s) moved to your cart ready for checkout!`);
+    return count;
   };
 
   // Apply Coupon code
@@ -1031,6 +1113,14 @@ export const AppProvider = ({ children }) => {
         updateCartQuantity,
         removeFromCart,
         clearCart,
+        wishlist,
+        isWishlistOpen,
+        setIsWishlistOpen,
+        toggleWishlist,
+        isInWishlist,
+        removeFromWishlist,
+        clearWishlist,
+        moveAllToCart,
         orders,
         fetchOrders,
         createOrder,

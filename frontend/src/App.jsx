@@ -5,6 +5,7 @@ import { AppProvider } from './context/AppContext';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import NotificationsCenter from './components/NotificationsCenter';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
 import CustomerPortal from './pages/CustomerPortal';
 import { Loader } from 'lucide-react';
 
@@ -73,6 +74,9 @@ function AppContent() {
 
       {/* Live Alerts Node */}
       <NotificationsCenter />
+
+      {/* Lightweight PWA & iOS Home Screen Install Prompt */}
+      <PWAInstallPrompt />
     </div>
   );
 }

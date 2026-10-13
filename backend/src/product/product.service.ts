@@ -225,4 +225,112 @@ export class ProductService implements OnModuleDestroy {
 
     return await this.reviewRepository.save(review);
   }
+
+  // Generate Meta (Facebook/Instagram) & Google Merchant XML Product Feed
+  async generateMetaFeedXml(): Promise<string> {
+    const products = await this.productRepository.find();
+    const escapeXml = (str: any) => {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    };
+
+    const itemsXml = products.map(p => {
+      let sizeVal = 'Standard';
+      if (p.sizes) {
+        try {
+          const parsed = typeof p.sizes === 'string' ? JSON.parse(p.sizes) : p.sizes;
+          if (Array.isArray(parsed) && parsed.length > 0) sizeVal = parsed.join(', ');
+        } catch (e) {
+          sizeVal = String(p.sizes);
+        }
+      }
+
+      const formatImageUrl = (url?: string) => {
+        if (!url) return 'https://sportsman.ke/logo.png';
+        if (url.startsWith('http://') || url.startsWith('https://')) return url;
+        return `https://sportsman.ke${url.startsWith('/') ? '' : '/'}${url}`;
+      };
+
+      const imgLink = formatImageUrl(p.imageUrl);
+      const inStock = p.stockQuantity > 0 ? 'in stock' : 'out of stock';
+      const desc = p.description || `${p.name} by ${p.brand || 'Sportsman'}. Authentic sports gear in Nairobi, Kenya.`;
+
+      return `    <item>
+      <g:id>${escapeXml(p.id)}</g:id>
+      <g:title>${escapeXml(p.name)}</g:title>
+      <g:description>${escapeXml(desc)}</g:description>
+      <g:link>https://sportsman.ke/?product=${escapeXml(p.id)}</g:link>
+      <g:image_link>${escapeXml(imgLink)}</g:image_link>
+      <g:brand>${escapeXml(p.brand || 'Sportsman')}</g:brand>
+      <g:condition>new</g:condition>
+      <g:availability>${inStock}</g:availability>
+      <g:price>${Number(p.price || 0).toFixed(2)} KES</g:price>
+      <g:product_type>${escapeXml(p.category || 'Sports Equipment')}</g:product_type>
+      <g:google_product_category>Sporting Goods &gt; Athletics</g:google_product_category>
+      <g:size>${escapeXml(sizeVal)}</g:size>
+      <g:custom_label_0>${escapeXml(p.warehouseLocation || 'Nairobi Central')}</g:custom_label_0>
+      <g:inventory>${p.stockQuantity}</g:inventory>
+    </item>`;
+    }).join('\n');
+
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
+  <channel>
+    <title>Sportsman.ke Official Product Catalog Feed</title>
+    <link>https://sportsman.ke</link>
+    <description>Live product catalog for Meta (Facebook/Instagram Shop) and Google Merchant Center Kenya</description>
+${itemsXml}
+  </channel>
+</rss>`;
+  }
+
+  // Generate Meta & Google Merchant JSON Catalog Feed
+  async generateMetaFeedJson() {
+    const products = await this.productRepository.find();
+    const formatImageUrl = (url?: string) => {
+      if (!url) return 'https://sportsman.ke/logo.png';
+      if (url.startsWith('http://') || url.startsWith('https://')) return url;
+      return `https://sportsman.ke${url.startsWith('/') ? '' : '/'}${url}`;
+    };
+
+    return {
+      title: 'Sportsman.ke Product Feed',
+      link: 'https://sportsman.ke',
+      updatedAt: new Date().toISOString(),
+      itemCount: products.length,
+      products: products.map(p => {
+        let sizeVal = ['Standard'];
+        if (p.sizes) {
+          try {
+            const parsed = typeof p.sizes === 'string' ? JSON.parse(p.sizes) : p.sizes;
+            if (Array.isArray(parsed) && parsed.length > 0) sizeVal = parsed;
+          } catch (e) {
+            sizeVal = [String(p.sizes)];
+          }
+        }
+
+        return {
+          id: p.id,
+          title: p.name,
+          description: p.description || `${p.name} - Official Sportsman.ke gear`,
+          link: `https://sportsman.ke/?product=${p.id}`,
+          image_link: formatImageUrl(p.imageUrl),
+          brand: p.brand || 'Sportsman',
+          condition: 'new',
+          availability: p.stockQuantity > 0 ? 'in stock' : 'out of stock',
+          price: `${Number(p.price || 0).toFixed(2)} KES`,
+          product_type: p.category || 'Sports Equipment',
+          sizes: sizeVal,
+          inventory: p.stockQuantity,
+          warehouse_location: p.warehouseLocation || 'Nairobi Central'
+        };
+      })
+    };
+  }
 }
+

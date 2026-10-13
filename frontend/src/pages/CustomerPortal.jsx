@@ -31,7 +31,8 @@ import {
   Printer,
   Building,
   Download,
-  RefreshCw
+  RefreshCw,
+  Heart
 } from 'lucide-react';
 
 const KENYA_COUNTY_TIERS = [
@@ -138,7 +139,15 @@ export default function CustomerPortal() {
     createQuotation,
     updateQuotationStatus,
     deleteQuotation,
-    convertQuotationToOrder
+    convertQuotationToOrder,
+    wishlist = [],
+    isWishlistOpen,
+    setIsWishlistOpen,
+    toggleWishlist,
+    isInWishlist,
+    removeFromWishlist,
+    clearWishlist,
+    moveAllToCart
   } = useContext(AppContext);
   const { user: currentUser } = useAuth();
 
@@ -689,19 +698,36 @@ export default function CustomerPortal() {
           </button>
         </div>
 
-        {/* Float Cart Icon */}
-        <button
-          onClick={() => setIsCartOpen(true)}
-          className="relative flex items-center gap-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white px-4 py-2 rounded-xl text-xs md:text-sm font-bold shadow-lg shadow-orange-500/15 transition-all duration-300 transform active:scale-95 cursor-pointer"
-        >
-          <ShoppingBag className="w-4.5 h-4.5" />
-          <span>Cart</span>
-          {cart.length > 0 && (
-            <span className="absolute -top-2 -right-2 bg-slate-950 text-orange-500 border border-orange-500/30 text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black animate-pulse">
-              {cart.reduce((sum, item) => sum + item.quantity, 0)}
-            </span>
-          )}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Float Wishlist Icon */}
+          <button
+            onClick={() => setIsWishlistOpen(true)}
+            className="relative flex items-center gap-1.5 bg-slate-900 border border-slate-800 hover:border-red-500/40 text-slate-300 hover:text-red-400 px-3.5 py-2 rounded-xl text-xs md:text-sm font-bold shadow-md transition-all duration-300 transform active:scale-95 cursor-pointer group"
+            title="Open Personal Wishlist"
+          >
+            <Heart className={`w-4 h-4 transition-transform group-hover:scale-110 ${wishlist.length > 0 ? 'text-red-500 fill-red-500' : 'text-slate-400'}`} />
+            <span className="hidden sm:inline">Wishlist</span>
+            {wishlist.length > 0 && (
+              <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-black shadow-sm">
+                {wishlist.length}
+              </span>
+            )}
+          </button>
+
+          {/* Float Cart Icon */}
+          <button
+            onClick={() => setIsCartOpen(true)}
+            className="relative flex items-center gap-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white px-4 py-2 rounded-xl text-xs md:text-sm font-bold shadow-lg shadow-orange-500/15 transition-all duration-300 transform active:scale-95 cursor-pointer"
+          >
+            <ShoppingBag className="w-4.5 h-4.5" />
+            <span>Cart</span>
+            {cart.length > 0 && (
+              <span className="absolute -top-2 -right-2 bg-slate-950 text-orange-500 border border-orange-500/30 text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black animate-pulse">
+                {cart.reduce((sum, item) => sum + item.quantity, 0)}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       {showActiveTab === 'shop' ? (
@@ -714,9 +740,9 @@ export default function CustomerPortal() {
 
             <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-8 relative z-10">
               <div className="flex-1 text-center md:text-left">
-                <div className="inline-flex items-center gap-1.5 bg-orange-500/10 text-orange-500 border border-orange-500/20 px-3 py-1 rounded-full text-xs font-bold mb-4 animate-pulse-slow">
+                <div className="inline-flex items-center gap-1.5 bg-orange-500/10 text-orange-500 border border-orange-500/20 px-3 py-1 rounded-full text-xs font-bold mb-4">
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>Promo Code: SPORT50 for 50% OFF!</span>
+                  <span>Official Athletics &amp; Sports Hub • Nairobi Express Delivery</span>
                 </div>
                 <h1 className="text-4xl md:text-6xl font-black tracking-tight text-white mb-4 uppercase leading-none">
                   Unleash Your <br />
@@ -753,6 +779,23 @@ export default function CustomerPortal() {
                       <div className="absolute top-0 right-0 bg-orange-500 text-white text-[9px] font-black uppercase px-3 py-1 rounded-bl-xl tracking-wider">
                         HOT SALE
                       </div>
+                      {/* Heart Wishlist Toggle Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleWishlist(hotProduct);
+                        }}
+                        aria-label={isInWishlist(hotProduct.id) ? 'Remove from wishlist' : 'Save to wishlist'}
+                        className={`absolute top-3 left-3 p-2 rounded-xl backdrop-blur-md transition-all duration-300 cursor-pointer z-10 ${
+                          isInWishlist(hotProduct.id)
+                            ? 'bg-red-500/20 text-red-500 border border-red-500/40 shadow-lg shadow-red-500/20 scale-105'
+                            : 'bg-slate-950/70 text-slate-400 hover:text-red-400 border border-slate-800 hover:border-red-500/30'
+                        }`}
+                        title={isInWishlist(hotProduct.id) ? 'Saved in Wishlist ❤️' : 'Save to Wishlist'}
+                      >
+                        <Heart className={`w-4 h-4 transition-transform ${isInWishlist(hotProduct.id) ? 'fill-red-500 text-red-500' : ''}`} />
+                      </button>
                       <div className="h-44 rounded-2xl bg-slate-950 overflow-hidden relative mb-4">
                         <img
                           src={hotProduct.imageUrl || '/logo.png'}
@@ -962,6 +1005,24 @@ export default function CustomerPortal() {
                             <div className="absolute bottom-2 right-2 bg-slate-950/80 backdrop-blur-md text-[9px] text-slate-300 font-bold px-2.5 py-1 rounded-md border border-slate-800">
                               {p.category}
                             </div>
+
+                            {/* Heart Wishlist Toggle Button */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleWishlist(p);
+                              }}
+                              aria-label={isInWishlist(p.id) ? 'Remove from wishlist' : 'Save to wishlist'}
+                              className={`absolute top-2 right-2 p-1.5 rounded-xl backdrop-blur-md transition-all duration-300 cursor-pointer z-10 ${
+                                isInWishlist(p.id)
+                                  ? 'bg-red-500/20 text-red-500 border border-red-500/40 shadow-lg shadow-red-500/20 scale-105'
+                                  : 'bg-slate-950/70 text-slate-400 hover:text-red-400 border border-slate-800 hover:border-red-500/30'
+                              }`}
+                              title={isInWishlist(p.id) ? 'Saved in Wishlist ❤️' : 'Save to Wishlist'}
+                            >
+                              <Heart className={`w-3.5 h-3.5 transition-transform ${isInWishlist(p.id) ? 'fill-red-500 text-red-500' : ''}`} />
+                            </button>
                           </div>
 
                           {/* Body Content */}
@@ -1789,30 +1850,45 @@ export default function CustomerPortal() {
                   })()}
                 </div>
 
-                <button
-                  onClick={() => {
-                    if (selectedProduct.stockQuantity > 0) {
-                      let availableSizes = ['Standard'];
-                      try {
-                        availableSizes = Array.isArray(selectedProduct.sizes)
-                          ? selectedProduct.sizes
-                          : JSON.parse(selectedProduct.sizes || '["Standard"]');
-                      } catch (e) {}
-                      const sizeToAdd = activeModalSize || availableSizes[0] || 'Standard';
-                      addToCart(selectedProduct, 1, sizeToAdd);
-                      setSelectedProduct(null);
-                      setActiveModalSize(null);
-                    }
-                  }}
-                  disabled={selectedProduct.stockQuantity === 0}
-                  className={`w-full py-3.5 rounded-xl font-black text-xs md:text-sm flex items-center justify-center gap-2 cursor-pointer transition-all duration-300 ${selectedProduct.stockQuantity === 0
-                      ? 'bg-slate-900 text-slate-600 border border-slate-850 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg shadow-orange-500/15'
+                <div className="flex items-center gap-2.5">
+                  <button
+                    onClick={() => {
+                      if (selectedProduct.stockQuantity > 0) {
+                        let availableSizes = ['Standard'];
+                        try {
+                          availableSizes = Array.isArray(selectedProduct.sizes)
+                            ? selectedProduct.sizes
+                            : JSON.parse(selectedProduct.sizes || '["Standard"]');
+                        } catch (e) {}
+                        const sizeToAdd = activeModalSize || availableSizes[0] || 'Standard';
+                        addToCart(selectedProduct, 1, sizeToAdd);
+                        setSelectedProduct(null);
+                        setActiveModalSize(null);
+                      }
+                    }}
+                    disabled={selectedProduct.stockQuantity === 0}
+                    className={`flex-1 py-3.5 rounded-xl font-black text-xs md:text-sm flex items-center justify-center gap-2 cursor-pointer transition-all duration-300 ${selectedProduct.stockQuantity === 0
+                        ? 'bg-slate-900 text-slate-600 border border-slate-850 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg shadow-orange-500/15'
+                      }`}
+                  >
+                    <ShoppingBag className="w-4 h-4" />
+                    <span>{selectedProduct.stockQuantity > 0 ? 'Add to Shopping Cart' : 'Currently Out of Stock'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => toggleWishlist(selectedProduct)}
+                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
+                      isInWishlist(selectedProduct.id)
+                        ? 'bg-red-500/15 border-red-500/40 text-red-500 shadow-md shadow-red-500/20'
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-red-400 hover:border-red-500/30'
                     }`}
-                >
-                  <ShoppingBag className="w-4 h-4" />
-                  <span>{selectedProduct.stockQuantity > 0 ? 'Add to Shopping Cart' : 'Currently Out of Stock'}</span>
-                </button>
+                    title={isInWishlist(selectedProduct.id) ? 'Saved in Wishlist ❤️' : 'Save to Personal Wishlist'}
+                  >
+                    <Heart className={`w-5 h-5 ${isInWishlist(selectedProduct.id) ? 'fill-red-500 text-red-500' : ''}`} />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1989,6 +2065,188 @@ export default function CustomerPortal() {
                     <span>Request Official VAT Quotation</span>
                   </button>
                 </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* PERSONAL WISHLIST DRAWER */}
+      {isWishlistOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs animate-fade-in text-left">
+          <div className="w-full max-w-md bg-[#0D1321] border-l border-slate-800 h-full shadow-2xl flex flex-col justify-between animate-slide-up">
+            {/* Wishlist Header */}
+            <div className="p-6 border-b border-slate-900 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Heart className="text-red-500 fill-red-500 w-5 h-5 animate-pulse" />
+                <h3 className="text-base font-black text-white uppercase tracking-tight m-0">Personal Wishlist</h3>
+                {wishlist.length > 0 && (
+                  <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-black px-2 py-0.5 rounded-full">
+                    {wishlist.length} item{wishlist.length === 1 ? '' : 's'}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {wishlist.length > 0 && (
+                  <button
+                    onClick={clearWishlist}
+                    className="text-[10px] font-bold text-slate-500 hover:text-red-400 cursor-pointer transition-colors"
+                  >
+                    Clear All
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsWishlistOpen(false)}
+                  className="bg-slate-950/70 border border-slate-800 p-2 rounded-full text-slate-400 hover:text-white transition-all cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Payday Bulk Transfer Highlight Banner */}
+            {wishlist.length > 0 && (
+              <div className="bg-gradient-to-r from-red-950/40 via-orange-950/30 to-slate-900/40 border-b border-orange-500/20 px-6 py-3.5 flex items-center justify-between gap-3 text-left">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-orange-400 animate-spin-slow" />
+                    <span className="text-[11px] font-black text-orange-300 uppercase tracking-wider">
+                      Payday Shopping Spree
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 m-0 mt-0.5">
+                    Ready to buy? Move everything directly to your cart in 1 click!
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">Total Value</span>
+                  <span className="text-xs font-black text-white">
+                    KES {wishlist.reduce((sum, item) => sum + Number(item.price || 0), 0).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Wishlist List Content */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {wishlist.length === 0 ? (
+                <div className="text-center py-16">
+                  <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-3">
+                    <Heart className="w-8 h-8 text-red-500/60" />
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-200 mb-1">Your wishlist is empty</h4>
+                  <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed mb-4">
+                    Tap the ❤️ heart icon on any sports gear in the catalog to bookmark items you love for payday!
+                  </p>
+                  <button
+                    onClick={() => {
+                      setIsWishlistOpen(false);
+                      const catEl = document.getElementById('catalog');
+                      if (catEl) catEl.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="mt-2 px-5 py-2.5 bg-slate-900 border border-slate-800 text-xs font-black rounded-xl text-white hover:border-orange-500 cursor-pointer shadow-sm transition-all"
+                  >
+                    Explore Sports Gear
+                  </button>
+                </div>
+              ) : (
+                wishlist.map((product) => {
+                  const isOutOfStock = product.stockQuantity === 0;
+                  return (
+                    <div
+                      key={product.id}
+                      className="flex gap-4 bg-slate-900/40 border border-slate-800/80 p-4 rounded-xl text-left hover:border-slate-700 transition-all"
+                    >
+                      <div className="w-16 h-16 bg-slate-950 rounded-lg overflow-hidden shrink-0 border border-slate-800 relative">
+                        <img
+                          src={product.imageUrl}
+                          className="w-full h-full object-cover"
+                          alt={product.name}
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = '/logo.png';
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-[10px] text-slate-500 uppercase font-black">{product.brand}</span>
+                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
+                              isOutOfStock
+                                ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                                : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            }`}>
+                              {isOutOfStock ? 'Sold Out' : 'In Stock'}
+                            </span>
+                          </div>
+                          <h4 className="text-xs font-bold text-white line-clamp-1 mt-0.5">{product.name}</h4>
+                          <span className="text-xs font-black text-orange-400 block mt-1">
+                            KES {Number(product.price || 0).toLocaleString()}
+                          </span>
+                        </div>
+
+                        {/* Move Single Item to Cart */}
+                        <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-800/60">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!isOutOfStock) {
+                                addToCart(product, 1);
+                                removeFromWishlist(product.id);
+                              }
+                            }}
+                            disabled={isOutOfStock}
+                            className={`text-[11px] font-black px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+                              isOutOfStock
+                                ? 'bg-slate-900 text-slate-600 border border-slate-800 cursor-not-allowed'
+                                : 'bg-orange-500/15 hover:bg-orange-500 text-orange-400 hover:text-white border border-orange-500/30'
+                            }`}
+                          >
+                            <ShoppingBag className="w-3 h-3" />
+                            <span>Move to Cart</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => removeFromWishlist(product.id)}
+                            className="text-slate-600 hover:text-red-400 transition-colors p-1 cursor-pointer"
+                            title="Remove from wishlist"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Wishlist Footer with "Move All to Cart" Button */}
+            {wishlist.length > 0 && (
+              <div className="p-6 border-t border-slate-900 bg-slate-950/60 space-y-3 text-left">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-400 font-bold">Total Estimated Value:</span>
+                  <span className="text-base font-black text-orange-500">
+                    KES {wishlist.reduce((sum, item) => sum + Number(item.price || 0), 0).toLocaleString()}
+                  </span>
+                </div>
+
+                {/* The "Move All to Cart" button requested on payday */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const count = moveAllToCart();
+                    if (count > 0) {
+                      setIsCartOpen(true);
+                    }
+                  }}
+                  className="w-full py-3.5 bg-gradient-to-r from-red-500 via-orange-500 to-amber-500 hover:from-red-600 hover:to-orange-600 text-white text-xs md:text-sm font-black rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-orange-500/20 active:scale-95 transition-all duration-300 cursor-pointer"
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  <span>🎉 Move All to Cart (Payday Special)</span>
+                </button>
               </div>
             )}
           </div>

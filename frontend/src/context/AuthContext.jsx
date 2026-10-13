@@ -120,13 +120,16 @@ export const AuthProvider = ({ children }) => {
     const normEmail = email.trim().toLowerCase();
 
     // 1. Try Backend API login
+    let backendResponded = false;
     try {
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: normEmail, password }),
         credentials: 'include'
       });
+
+      backendResponded = true;
 
       if (res.ok) {
         const data = await parseJsonOrText(res);
@@ -144,22 +147,20 @@ export const AuthProvider = ({ children }) => {
         }
       } else {
         const errorData = await parseJsonOrText(res);
-        if (res.status === 401 || res.status === 400) {
-          throw new Error(errorData?.message || 'Invalid email or password.');
-        }
+        throw new Error(errorData?.message || 'Invalid email or password. Please check your credentials or sign up.');
       }
     } catch (err) {
-      if (err.message === 'Invalid email or password.') {
+      // If the backend actively rejected the credentials, DO NOT fallback. Reject immediately!
+      if (backendResponded || (err.message && !err.message.includes('Failed to fetch') && !err.message.includes('NetworkError'))) {
         throw err;
       }
-      console.warn('Backend login network call unavailable. Triggering mobile fallback session...', err);
+      console.warn('Backend login network call unavailable. Checking verified offline credentials...', err);
     }
 
-    // 2. Mobile & Offline Fallback Account Verification
+    // 2. Offline / Mobile App Fallback Authentication (Only for verified registered accounts)
     const matched = MOCK_ACCOUNTS.find(a => a.email.toLowerCase() === normEmail);
-
     if (matched) {
-      if (matched.password === password || password.length >= 4) {
+      if (matched.password === password) {
         const localUser = {
           id: matched.id,
           name: matched.name,
@@ -176,13 +177,16 @@ export const AuthProvider = ({ children }) => {
       }
     }
 
-    // Check custom saved users in localStorage
+    // Check custom registered users in localStorage (must have signed up previously)
     const savedUsersStr = localStorage.getItem('sm_users');
     if (savedUsersStr) {
       try {
         const localUsers = JSON.parse(savedUsersStr);
         const userMatch = localUsers.find(u => u.email.toLowerCase() === normEmail);
         if (userMatch) {
+          if (userMatch.password && userMatch.password !== password) {
+            throw new Error('Invalid password provided.');
+          }
           const userObj = {
             id: userMatch.id || `usr-${Date.now()}`,
             name: userMatch.name,
@@ -196,35 +200,13 @@ export const AuthProvider = ({ children }) => {
           return userObj;
         }
       } catch (e) {
+        if (e.message === 'Invalid password provided.') throw e;
         console.warn('Local user parse error:', e);
       }
     }
 
-    // Fallback account creation for custom email on mobile
-    if (normEmail && password) {
-      const fallbackRole = normEmail.includes('admin')
-        ? 'admin'
-        : normEmail.includes('warehouse')
-        ? 'warehouse_staff'
-        : normEmail.includes('delivery')
-        ? 'delivery_agent'
-        : 'customer';
-
-      const fallbackUser = {
-        id: `usr-${Date.now()}`,
-        name: normEmail.split('@')[0],
-        email: normEmail,
-        phone: '+254 759 238018',
-        role: fallbackRole
-      };
-
-      setUser(fallbackUser);
-      setIsAuthenticated(true);
-      localStorage.setItem('sm_current_user', JSON.stringify(fallbackUser));
-      return fallbackUser;
-    }
-
-    throw new Error('Authentication failed. Please check your email & password.');
+    // Unregistered accounts must sign up first
+    throw new Error('Account does not exist. Please sign up first before logging in.');
   };
 
   const signup = async (name, email, phone, password) => {
@@ -255,23 +237,29 @@ export const AuthProvider = ({ children }) => {
         throw new Error(errorData?.message || 'Registration failed.');
       }
     } catch (err) {
-      if (err.message && err.message !== 'Failed to fetch') {
+      if (err.message && !err.message.includes('Failed to fetch') && !err.message.includes('NetworkError')) {
         throw err;
       }
       console.warn('Backend signup network error, using local registration fallback:', err);
     }
 
-    // Local mobile registration fallback
+    // Local mobile registration fallback (Store password for offline login verification)
     const newUser = {
       id: `usr-${Date.now()}`,
       name,
-      email,
+      email: email.trim().toLowerCase(),
       phone,
+      password,
       role: 'customer'
     };
 
     const savedUsersStr = localStorage.getItem('sm_users');
     const localUsers = savedUsersStr ? JSON.parse(savedUsersStr) : [];
+    const existing = localUsers.find(u => u.email === newUser.email);
+    if (existing) {
+      throw new Error('An account with this email already exists. Please log in.');
+    }
+
     localUsers.push(newUser);
     localStorage.setItem('sm_users', JSON.stringify(localUsers));
     setUser(newUser);
