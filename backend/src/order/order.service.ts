@@ -188,6 +188,14 @@ export class OrderService {
     // Evict product cache to reflect new stock levels instantly
     await this.productService.evictCache();
 
+    // Trigger automated real-time SMS notification to customer phone for web orders
+    if (savedOrder && savedOrder.phone && savedOrder.salesChannel !== 'walk_in') {
+      this.smsService.sendSms(
+        savedOrder.phone,
+        `Sportsman.ke: We received your order #${savedOrder.id.substring(0, 8)} for KES ${Number(savedOrder.totalAmount).toLocaleString()}. Track your package at: https://sportsman.ke/receipts`
+      ).catch(() => {});
+    }
+
     return savedOrder;
   }
 
@@ -241,12 +249,14 @@ export class OrderService {
         const reason = extraData.reason || 'Requested by Customer';
         msg = `Order has been cancelled. Reason: ${reason}`;
 
-        // Restore catalog stock levels
-        for (const item of order.items) {
-          const product = await entityManager.findOne(Product, { where: { id: item.product.id } });
-          if (product) {
-            product.stockQuantity += item.quantity;
-            await entityManager.save(Product, product);
+        // Restore catalog stock levels safely
+        for (const item of (order.items || [])) {
+          if (item && item.product && item.product.id) {
+            const product = await entityManager.findOne(Product, { where: { id: item.product.id } });
+            if (product) {
+              product.stockQuantity += item.quantity;
+              await entityManager.save(Product, product);
+            }
           }
         }
       }
