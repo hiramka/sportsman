@@ -44,6 +44,7 @@ export const exportOrdersToCSV = (orders, filterRange = 'all', customDates = { s
   // Define CSV headers
   const headers = [
     'Order ID',
+    'Sales Channel',
     'Order Date',
     'Customer Name',
     'Customer Phone',
@@ -93,8 +94,11 @@ export const exportOrdersToCSV = (orders, filterRange = 'all', customDates = { s
       }
     }
 
+    const channelName = order.salesChannel === 'walk_in' ? 'Walk-in Store (Nairobi)' : 'Online Web Store';
+
     return [
       `"${order.id}"`,
+      `"${channelName}"`,
       `"${new Date(order.date || Date.now()).toISOString().replace('T', ' ').substring(0, 19)}"`,
       `"${(order.customerName || '').replace(/"/g, '""')}"`,
       `"${(order.phone || '').replace(/"/g, '""')}"`,

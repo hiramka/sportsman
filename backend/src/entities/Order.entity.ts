@@ -59,6 +59,9 @@ export class Order {
   @Column()
   paymentMethod: string;
 
+  @Column({ nullable: true, default: 'online' })
+  salesChannel: string;
+
   @Column({ nullable: true })
   mpesaReference: string;
 

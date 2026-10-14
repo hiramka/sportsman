@@ -54,3 +54,49 @@ Customers can apply the following discount codes during checkout:
 - **Frontend**: React (Vite), Tailwind CSS, Lucide Icons, Responsive SPA Routing.
 - **Backend**: NestJS REST API, TypeORM (SQLite for dev, PostgreSQL/Supabase for production), Throttler Rate Limiting, JWT Authentication with HTTP-Only Cookie fallback.
 - **Services**: M-Pesa STK Push Payment Gateway, Supabase Storage for product images, Nodemailer SMTP for emails, and SMS Service for customer alerts.
+
+
+
+---
+
+## 🏬 In-Store Walk-in POS & Sales Planning Guide
+
+The corporate admin panel now features a dedicated Point of Sale (POS) system for recording clients who walk directly into your physical Nairobi store:
+
+### 1. Recording a Walk-in Customer Sale
+1. Navigate to `/admin` and log in with your Admin credentials.
+2. Click the green **`+ Record Walk-in (POS)`** button located in the header or on the **Sales & POS Planning** tab.
+3. Search for the product or click items from the quick catalog grid.
+4. Select the customer's desired shoe or jersey size (e.g., `Size 5`, `UK 9`, `M`).
+5. Choose payment method:
+   - **Cash**: Enter the cash amount tendered; the POS automatically calculates the customer's change.
+   - **In-Store M-Pesa Till / Paybill**: Enter the M-Pesa transaction reference code (e.g. `RJK4920XLM`).
+   - **Credit / Debit Card**: Select Card payment.
+6. Optional: Enter customer name and phone number for receipt tracking, and apply a custom discount if negotiating at the counter.
+7. Click **`Complete Sale & Print Receipt`**.
+   - Warehouse stock is **immediately decremented** in real-time so online web users cannot buy items sold at the counter.
+   - An official **80mm thermal receipt** is generated and triggered to your receipt printer with 16% KRA VAT breakdown.
+
+### 2. Daily Till Reconciliation & Sales Planning
+1. Click the **Sales & POS Planning** tab in the admin header.
+2. View the **Gross Sales**, **In-Store Walk-in Sales**, and **Today's Counter Till** summary cards to perform end-of-day cash and till reconciliation.
+3. Check the **Inventory Replenishment & Sales Velocity Planning** table:
+   - Identifies high-demand items vs remaining warehouse stock.
+   - Highlights items that are `OUT OF STOCK` or `REORDER NOW`.
+   - Provides recommended restock quantities (e.g. `+25 units`) for your next supplier shipment.
+4. Use the **Sales Transactions & POS Receipt History** table to search, filter by channel (*Walk-in* vs *Online*), and reprint POS receipts anytime.
+5. Click **`Export Sales CSV`** to download sales records formatted for accounting and KRA VAT returns.
+
+---
+
+## 📱 Progressive Web App (PWA) Mobile Installation
+
+### Android Users (Chrome)
+- Visiting `sportsman.ke` automatically presents the native "Add Sportsman.ke to Home screen" install bar. Tap **Install** to add the app icon to the home screen.
+
+### iOS Users (Safari on iPhone / iPad)
+1. Open **Safari** on your iPhone or iPad and navigate to `sportsman.ke`.
+2. Tap the **Share** button (square with arrow pointing up `⎋` in the bottom bar).
+3. Scroll down and tap **"Add to Home Screen"** (`⊞`).
+4. Tap **Add** in the upper right corner.
+5. Sportsman.ke launches directly from the home screen in full-screen standalone mode with no browser URL bar or tabs.

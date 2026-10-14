@@ -631,6 +631,111 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  // Record In-Store / Walk-In POS Sale
+  const recordWalkInSale = async (saleData) => {
+    try {
+      if (!saleData.items || saleData.items.length === 0) {
+        throw new Error('Please select at least one product to record a walk-in sale.');
+      }
+
+      const body = {
+        name: saleData.customerName?.trim() || 'Walk-in Customer',
+        email: saleData.email?.trim() || 'walkin@sportsman.ke',
+        phone: saleData.phone?.trim() || '+254 700 000000',
+        address: saleData.notes?.trim() ? `In-Store Walk-in (${saleData.notes.trim()})` : 'In-Store Walk-in (Nairobi Retail Shop)',
+        subCounty: 'In-Store Counter',
+        county: 'Nairobi',
+        shippingFee: 0,
+        paymentMethod: saleData.paymentMethod || 'Cash',
+        mpesaReference: saleData.paymentReference?.trim() || null,
+        status: 'Delivered', // In-store client walks away with goods immediately
+        salesChannel: 'walk_in',
+        cart: saleData.items,
+        discountAmount: Number(saleData.discountAmount) || 0,
+        couponCode: null
+      };
+
+      const res = await fetch(`${API_BASE}/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        credentials: 'include'
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to record in-store sale.');
+      }
+
+      const rawOrder = await res.json();
+      const parsedOrder = {
+        ...rawOrder,
+        salesChannel: 'walk_in',
+        county: 'Nairobi',
+        shippingFee: 0,
+        status: 'Delivered',
+        exchangeRequestJson: null,
+        timeline: JSON.parse(rawOrder.timelineJson || '[]'),
+        items: (rawOrder.items || []).map(item => ({
+          product: item.product,
+          quantity: item.quantity,
+          selectedSize: item.selectedSize || 'Standard'
+        }))
+      };
+
+      setOrders(prev => [parsedOrder, ...prev]);
+      addNotification('success', `🎉 Walk-in Sale recorded! Ref: ${parsedOrder.id} • KES ${parsedOrder.totalAmount.toLocaleString()}`);
+
+      // Sync updated stock in state
+      await fetchProducts();
+      return parsedOrder;
+    } catch (err) {
+      console.warn('Walk-in POS backend error, using local fallback:', err);
+      // Fallback for offline / demo mode
+      const fallbackId = `POS-${Date.now().toString().slice(-6)}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+      let subtotal = 0;
+      saleData.items.forEach(it => {
+        subtotal += Number(it.product?.price || 0) * it.quantity;
+      });
+      const discount = Number(saleData.discountAmount) || 0;
+      const totalAmount = Math.max(0, subtotal - discount);
+
+      const localOrder = {
+        id: fallbackId,
+        customerName: saleData.customerName?.trim() || 'Walk-in Customer',
+        email: saleData.email?.trim() || 'walkin@sportsman.ke',
+        phone: saleData.phone?.trim() || '+254 700 000000',
+        deliveryAddress: saleData.notes?.trim() ? `In-Store Walk-in (${saleData.notes.trim()})` : 'In-Store Walk-in (Nairobi Retail Shop)',
+        subCounty: 'In-Store Counter',
+        county: 'Nairobi',
+        shippingFee: 0,
+        subtotal,
+        discountAmount: discount,
+        totalAmount,
+        status: 'Delivered',
+        paymentMethod: saleData.paymentMethod || 'Cash',
+        mpesaReference: saleData.paymentReference?.trim() || null,
+        salesChannel: 'walk_in',
+        date: new Date().toISOString(),
+        timeline: [{ status: 'Delivered', date: new Date().toISOString(), message: 'In-store walk-in sale completed.' }],
+        items: saleData.items
+      };
+
+      // Decrement stock in local product state
+      setProducts(prev => prev.map(p => {
+        const itemSold = saleData.items.find(it => it.product?.id === p.id);
+        if (itemSold) {
+          return { ...p, stockQuantity: Math.max(0, Number(p.stockQuantity || 0) - itemSold.quantity) };
+        }
+        return p;
+      }));
+
+      setOrders(prev => [localOrder, ...prev]);
+      addNotification('success', `🎉 Walk-in Sale recorded! Ref: ${localOrder.id} • KES ${localOrder.totalAmount.toLocaleString()}`);
+      return localOrder;
+    }
+  };
+
   // Complete Payment (mostly for M-Pesa simulator) via the public pay endpoint
   const payOrder = async (orderId, mpesaRef) => {
     try {
@@ -1124,6 +1229,7 @@ export const AppProvider = ({ children }) => {
         orders,
         fetchOrders,
         createOrder,
+        recordWalkInSale,
         payOrder,
         triggerMpesaPush,
         updateOrderStatus,

@@ -25,11 +25,18 @@ import {
   Printer,
   Send,
   RefreshCw,
-  Download
+  Download,
+  Store,
+  Receipt,
+  Calendar,
+  Filter,
+  ArrowUpRight
 } from 'lucide-react';
 import QuotationModal from '../components/QuotationModal';
+import WalkInPosModal from '../components/WalkInPosModal';
 import { printQuotation } from '../components/QuotationPrintView';
 import { printShippingWaybill } from '../utils/waybillPrinter';
+import { printPosReceipt } from '../utils/posReceiptPrinter';
 import { exportOrdersToCSV } from '../utils/csvExporter';
 
 export default function AdminPortal() {
@@ -99,6 +106,12 @@ export default function AdminPortal() {
 
   // Quotation Modal state
   const [isQuotationModalOpen, setIsQuotationModalOpen] = useState(false);
+
+  // Walk-in In-Store POS & Sales Planning State
+  const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
+  const [salesChannelFilter, setSalesChannelFilter] = useState('All'); // 'All' | 'walk_in' | 'online'
+  const [salesDateFilter, setSalesDateFilter] = useState('All'); // 'All' | 'today' | '7days' | 'month'
+  const [salesSearch, setSalesSearch] = useState('');
 
 
   // Contact Messages State (Saved in Supabase DB)
@@ -413,6 +426,141 @@ export default function AdminPortal() {
     );
   }, [orders, orderSearch]);
 
+  // Detailed Sales & Channel Analytics
+  const salesMetrics = useMemo(() => {
+    const safeOrders = orders || [];
+    const paidOrders = safeOrders.filter(o => o && o.status !== 'Pending Payment' && o.status !== 'Cancelled');
+
+    const walkInOrders = paidOrders.filter(o => o.salesChannel === 'walk_in');
+    const onlineOrders = paidOrders.filter(o => o.salesChannel !== 'walk_in');
+
+    const walkInRevenue = walkInOrders.reduce((sum, o) => sum + Number(o?.totalAmount || 0), 0);
+    const onlineRevenue = onlineOrders.reduce((sum, o) => sum + Number(o?.totalAmount || 0), 0);
+    const totalRevenue = walkInRevenue + onlineRevenue;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayOrders = paidOrders.filter(o => (o.date || '').startsWith(todayStr));
+    const todayRevenue = todayOrders.reduce((sum, o) => sum + Number(o?.totalAmount || 0), 0);
+    const todayWalkIn = todayOrders.filter(o => o.salesChannel === 'walk_in');
+    const todayWalkInRevenue = todayWalkIn.reduce((sum, o) => sum + Number(o?.totalAmount || 0), 0);
+    const todayOnlineRevenue = todayRevenue - todayWalkInRevenue;
+
+    const walkInPercentage = totalRevenue > 0 ? Math.round((walkInRevenue / totalRevenue) * 100) : 0;
+    const onlinePercentage = totalRevenue > 0 ? Math.round((onlineRevenue / totalRevenue) * 100) : 0;
+
+    return {
+      totalRevenue,
+      paidOrdersCount: paidOrders.length,
+      walkInRevenue,
+      walkInCount: walkInOrders.length,
+      walkInPercentage,
+      onlineRevenue,
+      onlineCount: onlineOrders.length,
+      onlinePercentage,
+      todayRevenue,
+      todayCount: todayOrders.length,
+      todayWalkInRevenue,
+      todayWalkInCount: todayWalkIn.length,
+      todayOnlineRevenue
+    };
+  }, [orders]);
+
+  // Inventory Reorder & Sales Velocity Planning
+  const inventoryPlanning = useMemo(() => {
+    const safeOrders = orders || [];
+    const safeProducts = products || [];
+    const paidOrders = safeOrders.filter(o => o && o.status !== 'Pending Payment' && o.status !== 'Cancelled');
+
+    // Calculate units sold per product id
+    const productSalesMap = {};
+    const productRevenueMap = {};
+
+    paidOrders.forEach(order => {
+      (order?.items || []).forEach(it => {
+        const prodId = it.product?.id || it.productId;
+        if (!prodId) return;
+        const qty = Number(it.quantity || 1);
+        const unitPrice = Number(it.product?.price || 0);
+        productSalesMap[prodId] = (productSalesMap[prodId] || 0) + qty;
+        productRevenueMap[prodId] = (productRevenueMap[prodId] || 0) + (qty * unitPrice);
+      });
+    });
+
+    return safeProducts.map(p => {
+      const currentStock = Number(p.stockQuantity || 0);
+      const reorderThreshold = Number(p.reorderThreshold || 3);
+      const unitsSold = productSalesMap[p.id] || 0;
+      const totalRevenue = productRevenueMap[p.id] || 0;
+
+      let stockStatus = 'HEALTHY';
+      let urgencyScore = 0;
+
+      if (currentStock === 0) {
+        stockStatus = 'OUT_OF_STOCK';
+        urgencyScore = 100;
+      } else if (currentStock <= reorderThreshold) {
+        stockStatus = 'LOW_STOCK';
+        urgencyScore = 80;
+      } else if (unitsSold >= 10 && currentStock <= reorderThreshold * 2) {
+        stockStatus = 'HIGH_DEMAND';
+        urgencyScore = 50;
+      } else {
+        stockStatus = 'HEALTHY';
+        urgencyScore = 10;
+      }
+
+      // Recommended restock formula
+      const suggestedReorder = Math.max(10, Math.max(reorderThreshold * 3, unitsSold * 2) - currentStock);
+
+      return {
+        product: p,
+        currentStock,
+        reorderThreshold,
+        unitsSold,
+        totalRevenue,
+        stockStatus,
+        urgencyScore,
+        suggestedReorder
+      };
+    }).sort((a, b) => b.urgencyScore - a.urgencyScore || b.unitsSold - a.unitsSold);
+  }, [orders, products]);
+
+  // Filtered Sales Records for Ledger Table
+  const filteredSalesRecords = useMemo(() => {
+    const query = (salesSearch || '').toLowerCase().trim();
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+
+    return (orders || []).filter(o => {
+      if (!o) return false;
+
+      // Channel filter
+      if (salesChannelFilter === 'walk_in' && o.salesChannel !== 'walk_in') return false;
+      if (salesChannelFilter === 'online' && o.salesChannel === 'walk_in') return false;
+
+      // Date filter
+      if (salesDateFilter === 'today') {
+        if (!(o.date || '').startsWith(todayStr)) return false;
+      } else if (salesDateFilter === '7days') {
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        if (new Date(o.date) < sevenDaysAgo) return false;
+      } else if (salesDateFilter === 'month') {
+        const orderDate = new Date(o.date);
+        if (orderDate.getFullYear() !== now.getFullYear() || orderDate.getMonth() !== now.getMonth()) return false;
+      }
+
+      // Search query
+      if (!query) return true;
+      const matchId = String(o.id || '').toLowerCase().includes(query);
+      const matchName = String(o.customerName || '').toLowerCase().includes(query);
+      const matchPhone = String(o.phone || '').includes(query);
+      const matchRef = String(o.mpesaReference || '').toLowerCase().includes(query);
+      const matchItem = (o.items || []).some(it => String(it.product?.name || '').toLowerCase().includes(query));
+
+      return matchId || matchName || matchPhone || matchRef || matchItem;
+    });
+  }, [orders, salesChannelFilter, salesDateFilter, salesSearch]);
+
   // User filter
   const filteredUsers = useMemo(() => {
     const query = (userSearch || '').toLowerCase();
@@ -711,9 +859,19 @@ export default function AdminPortal() {
             <p className="text-xs text-slate-400 m-0">Consolidated analytics, product catalog modifications, and live order tracking</p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setIsWalkInModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-xs rounded-xl shadow-lg shadow-emerald-500/20 cursor-pointer transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+              title="Record In-Store Walk-in Customer Sale"
+            >
+              <Store className="w-4 h-4" />
+              <span>+ Record Walk-in (POS)</span>
+            </button>
+
             {[
               { id: 'dashboard', name: 'Dashboard Stats' },
+              { id: 'sales', name: 'Sales & POS Planning' },
               { id: 'products', name: 'Product Inventory' },
               { id: 'orders', name: 'Order Processing' },
               { id: 'quotations', name: `Quotations & Invoices (${(quotations || []).length})` },
@@ -776,6 +934,46 @@ export default function AdminPortal() {
                 </div>
                 <h3 className="text-xl md:text-2xl font-black text-white">{metrics.activePromos} active</h3>
                 <p className="text-[10px] text-slate-500 mt-1">Available discount codes</p>
+              </div>
+            </div>
+
+            {/* Quick Channel Breakdown Strip */}
+            <div className="bg-[#0D1321]/50 border border-slate-800/80 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400"></div>
+                  <span className="text-slate-400">In-Store Walk-in:</span>
+                  <span className="font-black text-emerald-400">KES {salesMetrics.walkInRevenue.toLocaleString()}</span>
+                  <span className="text-[10px] text-slate-500">({salesMetrics.walkInCount} receipts)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-blue-400"></div>
+                  <span className="text-slate-400">Online Web:</span>
+                  <span className="font-black text-blue-400">KES {salesMetrics.onlineRevenue.toLocaleString()}</span>
+                  <span className="text-[10px] text-slate-500">({salesMetrics.onlineCount} orders)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-400"></div>
+                  <span className="text-slate-400">Today's Total:</span>
+                  <span className="font-black text-amber-400">KES {salesMetrics.todayRevenue.toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsWalkInModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-black transition-all cursor-pointer"
+                >
+                  <Store className="w-3.5 h-3.5" />
+                  <span>+ Record Walk-in (POS)</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('sales')}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                >
+                  <span>View Sales Planning</span>
+                  <ArrowUpRight className="w-3.5 h-3.5 text-cyan-400" />
+                </button>
               </div>
             </div>
 
@@ -1741,6 +1939,410 @@ export default function AdminPortal() {
           </div>
         )}
 
+        {/* TAB: SALES & POS PLANNING */}
+        {activeTab === 'sales' && (
+          <div className="space-y-6 animate-fade-in text-left">
+            {/* Header / Actions Banner */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-[#0D1321] via-slate-900 to-[#0A1628] border border-slate-800 p-6 rounded-3xl shadow-xl">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    Dual Channel Commerce
+                  </span>
+                  <span className="text-[10px] text-slate-400">Nairobi Physical Store + Online Web</span>
+                </div>
+                <h3 className="text-xl md:text-2xl font-black text-white m-0 uppercase tracking-tight flex items-center gap-2">
+                  <Store className="w-6 h-6 text-emerald-400" />
+                  Sales Records & POS Store Planning
+                </h3>
+                <p className="text-xs text-slate-400 mt-1 max-w-2xl">
+                  Record walk-in clients visiting the Nairobi shop directly, reconcile counter cash & till payments, print official POS receipts, and forecast stock replenishment before items run out.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5">
+                <button
+                  onClick={() => setIsWalkInModalOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-xs rounded-xl shadow-lg shadow-emerald-500/25 cursor-pointer transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>+ Record Walk-in Sale (POS)</span>
+                </button>
+
+                <button
+                  onClick={() => exportOrdersToCSV(filteredSalesRecords, salesDateFilter === 'today' ? 'today' : salesDateFilter === '7days' ? '7days' : salesDateFilter === 'month' ? 'month' : 'all')}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-850 border border-slate-750 text-slate-200 font-black text-xs rounded-xl transition-all cursor-pointer"
+                  title="Export Sales for Accounting & KRA VAT Filing"
+                >
+                  <Download className="w-4 h-4 text-cyan-400" />
+                  <span>Export Sales CSV</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Sales Performance Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Total Revenue */}
+              <div className="bg-[#0D1321]/60 border border-slate-800 p-5 rounded-2xl relative overflow-hidden">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Gross Sales Revenue</span>
+                  <DollarSign className="w-4 h-4 text-cyan-400" />
+                </div>
+                <div className="text-2xl font-black text-white">KES {salesMetrics.totalRevenue.toLocaleString()}</div>
+                <div className="text-[10px] text-slate-500 mt-1">
+                  From <strong className="text-slate-300">{salesMetrics.paidOrdersCount}</strong> paid transactions
+                </div>
+              </div>
+
+              {/* In-Store Walk-in Sales */}
+              <div className="bg-[#0D1321]/60 border border-emerald-500/30 p-5 rounded-2xl relative overflow-hidden bg-gradient-to-b from-emerald-950/20 to-transparent">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                    <Store className="w-3.5 h-3.5" /> Walk-in Store Sales
+                  </span>
+                  <span className="text-[10px] font-black bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                    {salesMetrics.walkInPercentage}%
+                  </span>
+                </div>
+                <div className="text-2xl font-black text-emerald-400">KES {salesMetrics.walkInRevenue.toLocaleString()}</div>
+                <div className="text-[10px] text-slate-400 mt-1">
+                  <strong className="text-emerald-300">{salesMetrics.walkInCount}</strong> physical counter receipts
+                </div>
+              </div>
+
+              {/* Online Web Orders */}
+              <div className="bg-[#0D1321]/60 border border-blue-500/30 p-5 rounded-2xl relative overflow-hidden bg-gradient-to-b from-blue-950/20 to-transparent">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
+                    <ShoppingBag className="w-3.5 h-3.5" /> Online Web Orders
+                  </span>
+                  <span className="text-[10px] font-black bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full border border-blue-500/30">
+                    {salesMetrics.onlinePercentage}%
+                  </span>
+                </div>
+                <div className="text-2xl font-black text-blue-400">KES {salesMetrics.onlineRevenue.toLocaleString()}</div>
+                <div className="text-[10px] text-slate-400 mt-1">
+                  <strong className="text-blue-300">{salesMetrics.onlineCount}</strong> website orders
+                </div>
+              </div>
+
+              {/* Today's In-Store Till Reconciliation */}
+              <div className="bg-[#0D1321]/60 border border-amber-500/30 p-5 rounded-2xl relative overflow-hidden bg-gradient-to-b from-amber-950/20 to-transparent">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                    <Receipt className="w-3.5 h-3.5" /> Today's Counter Till
+                  </span>
+                  <span className="text-[9px] font-bold text-amber-300/80">Cash-Up</span>
+                </div>
+                <div className="text-2xl font-black text-amber-400">KES {salesMetrics.todayWalkInRevenue.toLocaleString()}</div>
+                <div className="text-[10px] text-slate-400 mt-1">
+                  Walk-in today: <strong className="text-amber-300">{salesMetrics.todayWalkInCount}</strong> (Total Today: KES {salesMetrics.todayRevenue.toLocaleString()})
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION: INVENTORY REORDER PLANNING & DEMAND FORECASTING */}
+            <div className="bg-[#0D1321]/60 border border-slate-800 rounded-3xl p-6 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-850 gap-3">
+                <div>
+                  <h4 className="text-base font-black text-white m-0 uppercase tracking-tight flex items-center gap-2">
+                    <TrendingUp className="w-4.5 h-4.5 text-cyan-400" />
+                    Inventory Replenishment & Sales Velocity Planning
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Data-driven supplier reordering: dynamically calculates sales velocity vs warehouse stock to prevent stockouts in the Nairobi store.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-1 bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] font-black rounded-lg">
+                    {inventoryPlanning.filter(i => i.stockStatus === 'OUT_OF_STOCK').length} Out of Stock
+                  </span>
+                  <span className="px-2.5 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-black rounded-lg">
+                    {inventoryPlanning.filter(i => i.stockStatus === 'LOW_STOCK').length} Low Stock
+                  </span>
+                </div>
+              </div>
+
+              {/* Planning Table */}
+              <div className="overflow-x-auto mt-4">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                      <th className="py-3 px-3">Product Name & Category</th>
+                      <th className="py-3 px-3 text-center">Current Stock</th>
+                      <th className="py-3 px-3 text-center">Reorder Threshold</th>
+                      <th className="py-3 px-3 text-center">Units Sold</th>
+                      <th className="py-3 px-3 text-right">Revenue Generated</th>
+                      <th className="py-3 px-3 text-center">Demand Velocity</th>
+                      <th className="py-3 px-3 text-center">Suggested Restock</th>
+                      <th className="py-3 px-3 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-850/60 font-medium">
+                    {inventoryPlanning.slice(0, 10).map(({ product: p, currentStock, reorderThreshold, unitsSold, totalRevenue, stockStatus, suggestedReorder }) => {
+                      let statusBadge = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+                      let statusLabel = 'Adequate';
+
+                      if (stockStatus === 'OUT_OF_STOCK') {
+                        statusBadge = 'bg-red-500/20 text-red-400 border-red-500/40 animate-pulse';
+                        statusLabel = 'OUT OF STOCK';
+                      } else if (stockStatus === 'LOW_STOCK') {
+                        statusBadge = 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+                        statusLabel = 'REORDER NOW';
+                      } else if (stockStatus === 'HIGH_DEMAND') {
+                        statusBadge = 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30';
+                        statusLabel = 'HIGH VELOCITY';
+                      }
+
+                      return (
+                        <tr key={p.id} className="hover:bg-slate-900/40 transition-colors">
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-3">
+                              <img
+                                src={p.imageUrl || 'https://images.unsplash.com/photo-1517649763962-0c623266ddc0?w=100'}
+                                alt=""
+                                className="w-9 h-9 object-cover rounded-lg border border-slate-800 bg-slate-900 shrink-0"
+                              />
+                              <div>
+                                <div className="font-bold text-white text-xs">{p.name}</div>
+                                <div className="text-[10px] text-slate-400">{p.brand} • <span className="text-cyan-400">{p.category}</span></div>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="py-3 px-3 text-center">
+                            <span className={`font-black text-xs ${currentStock === 0 ? 'text-red-400' : currentStock <= reorderThreshold ? 'text-amber-400' : 'text-slate-200'}`}>
+                              {currentStock} units
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-3 text-center text-slate-400 font-mono text-[11px]">
+                            {reorderThreshold} units
+                          </td>
+
+                          <td className="py-3 px-3 text-center">
+                            <span className="font-black text-cyan-400 text-xs">{unitsSold}</span>
+                            <span className="text-[9px] text-slate-500 ml-1">sold</span>
+                          </td>
+
+                          <td className="py-3 px-3 text-right font-black text-slate-200">
+                            KES {totalRevenue.toLocaleString()}
+                          </td>
+
+                          <td className="py-3 px-3 text-center">
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${statusBadge}`}>
+                              {statusLabel}
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-3 text-center">
+                            <span className="font-mono font-bold text-xs text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20">
+                              +{suggestedReorder} units
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-3 text-center">
+                            <button
+                              onClick={() => startEditProduct(p)}
+                              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-black rounded-lg transition-colors cursor-pointer"
+                              title="Update warehouse stock quantity"
+                            >
+                              Restock
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* SECTION: SALES TRANSACTIONS LEDGER */}
+            <div className="bg-[#0D1321]/60 border border-slate-800 rounded-3xl p-6 shadow-xl">
+              <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-slate-850 gap-4">
+                <div>
+                  <h4 className="text-base font-black text-white m-0 uppercase tracking-tight flex items-center gap-2">
+                    <Receipt className="w-4.5 h-4.5 text-emerald-400" />
+                    Sales Transactions & POS Receipt History ({filteredSalesRecords.length})
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Complete multi-channel sales audit ledger with thermal POS receipt reprints and customer contact records.
+                  </p>
+                </div>
+
+                {/* Filter and Search Bar */}
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {/* Channel Filter */}
+                  <div className="flex bg-slate-900 border border-slate-800 rounded-xl p-1 text-[10px] font-black">
+                    {[
+                      { id: 'All', label: 'All Channels' },
+                      { id: 'walk_in', label: 'Walk-in Store' },
+                      { id: 'online', label: 'Online Web' }
+                    ].map(btn => (
+                      <button
+                        key={btn.id}
+                        onClick={() => setSalesChannelFilter(btn.id)}
+                        className={`px-3 py-1 rounded-lg cursor-pointer transition-colors ${salesChannelFilter === btn.id
+                            ? 'bg-emerald-500 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white'
+                          }`}
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Date Filter */}
+                  <div className="flex bg-slate-900 border border-slate-800 rounded-xl p-1 text-[10px] font-black">
+                    {[
+                      { id: 'All', label: 'All Time' },
+                      { id: 'today', label: 'Today' },
+                      { id: '7days', label: 'Past 7 Days' },
+                      { id: 'month', label: 'This Month' }
+                    ].map(btn => (
+                      <button
+                        key={btn.id}
+                        onClick={() => setSalesDateFilter(btn.id)}
+                        className={`px-2.5 py-1 rounded-lg cursor-pointer transition-colors ${salesDateFilter === btn.id
+                            ? 'bg-cyan-500 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white'
+                          }`}
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Search Input */}
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search ID, customer, item..."
+                      value={salesSearch}
+                      onChange={(e) => setSalesSearch(e.target.value)}
+                      className="bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 w-48 sm:w-56"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="overflow-x-auto mt-4">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                      <th className="py-3 px-3">Receipt / Ref</th>
+                      <th className="py-3 px-3">Channel</th>
+                      <th className="py-3 px-3">Date & Time</th>
+                      <th className="py-3 px-3">Customer Details</th>
+                      <th className="py-3 px-3">Items Purchased</th>
+                      <th className="py-3 px-3">Payment Method</th>
+                      <th className="py-3 px-3 text-right">Total Amount</th>
+                      <th className="py-3 px-3 text-center">Receipt Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-850/60 font-medium">
+                    {filteredSalesRecords.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-12 text-center text-slate-500">
+                          <Store className="w-10 h-10 mx-auto mb-2 text-slate-600 opacity-60" />
+                          <p className="text-sm font-bold text-slate-400">No sales records found</p>
+                          <p className="text-xs text-slate-500 mt-1">Try adjusting your filters or click "+ Record Walk-in Sale (POS)" above.</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredSalesRecords.map((order) => {
+                        const isWalkIn = order.salesChannel === 'walk_in';
+                        const items = order.items || [];
+                        const formattedDate = order.date ? new Date(order.date).toLocaleDateString('en-KE', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }) : 'N/A';
+
+                        return (
+                          <tr key={order.id} className="hover:bg-slate-900/40 transition-colors">
+                            <td className="py-3 px-3 font-mono font-bold text-xs text-white">
+                              {order.id}
+                            </td>
+
+                            <td className="py-3 px-3">
+                              {isWalkIn ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                  <Store className="w-2.5 h-2.5" /> Walk-in
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-blue-500/15 text-blue-400 border border-blue-500/30">
+                                  <ShoppingBag className="w-2.5 h-2.5" /> Online
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-3 text-slate-400 text-[11px] whitespace-nowrap">
+                              {formattedDate}
+                            </td>
+
+                            <td className="py-3 px-3">
+                              <div className="font-bold text-white text-xs">{order.customerName || 'Walk-in Guest'}</div>
+                              <div className="text-[10px] text-slate-400 font-mono">{order.phone || 'No phone'}</div>
+                              {order.county && !isWalkIn && (
+                                <div className="text-[9px] text-cyan-400">{order.subCounty ? `${order.subCounty}, ` : ''}{order.county}</div>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-3 max-w-xs">
+                              <div className="space-y-0.5">
+                                {items.slice(0, 2).map((it, idx) => (
+                                  <div key={idx} className="text-[11px] text-slate-300 truncate">
+                                    <span className="font-bold text-white">{it.quantity || 1}x</span> {it.product?.name || 'Item'}
+                                    {it.selectedSize && <span className="text-slate-500 text-[9px]"> ({it.selectedSize})</span>}
+                                  </div>
+                                ))}
+                                {items.length > 2 && (
+                                  <span className="text-[9px] text-slate-500 font-bold">+{items.length - 2} more items</span>
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="py-3 px-3">
+                              <div className="text-xs font-bold text-slate-200">{order.paymentMethod || 'Cash'}</div>
+                              {order.mpesaReference && (
+                                <div className="text-[9px] font-mono text-emerald-400">Ref: {order.mpesaReference}</div>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-3 text-right">
+                              <div className="font-black text-sm text-white">KES {Number(order.totalAmount || 0).toLocaleString()}</div>
+                              {Number(order.discountAmount) > 0 && (
+                                <div className="text-[9px] text-emerald-400">-KES {Number(order.discountAmount).toLocaleString()} off</div>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-3 text-center">
+                              <button
+                                onClick={() => printPosReceipt(order)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-emerald-500/20 hover:text-emerald-300 text-slate-300 border border-slate-750 hover:border-emerald-500/40 rounded-xl text-[10px] font-black transition-all cursor-pointer shadow-sm"
+                                title="Print POS Thermal Receipt"
+                              >
+                                <Printer className="w-3.5 h-3.5 text-emerald-400" />
+                                <span>Print Receipt</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* --- PRODUCT EDIT MODAL DRAWER --- */}
         {isProductModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in text-slate-100">
@@ -2142,6 +2744,12 @@ export default function AdminPortal() {
         <QuotationModal
           isOpen={isQuotationModalOpen}
           onClose={() => setIsQuotationModalOpen(false)}
+        />
+
+        {/* Walk-in POS Sale Modal */}
+        <WalkInPosModal
+          isOpen={isWalkInModalOpen}
+          onClose={() => setIsWalkInModalOpen(false)}
         />
       </div>
     </div>

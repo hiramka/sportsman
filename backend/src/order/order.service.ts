@@ -121,15 +121,33 @@ export class OrderService {
         }
       }
 
+      const appliedDiscount = createDto.discountAmount !== undefined ? Number(createDto.discountAmount) : discountAmount;
       const parsedShippingFee = Number(shippingFee) || 0;
-      const totalAmount = Math.max(0, subtotal - discountAmount + parsedShippingFee);
+      const totalAmount = Math.max(0, subtotal - appliedDiscount + parsedShippingFee);
+      const isWalkIn = createDto.salesChannel === 'walk_in' || (address && address.includes('Walk-in'));
+      const determinedStatus = createDto.status || ((paymentMethod === 'M-Pesa' || paymentMethod === 'WhatsApp') ? 'Pending Payment' : 'Paid');
+
       const timeline = [
         {
           status: 'Ordered',
           date: new Date().toISOString(),
-          message: 'Order has been placed.'
+          message: isWalkIn ? 'Walk-in sale recorded at Nairobi shop.' : 'Order has been placed.'
         }
       ];
+
+      if (determinedStatus === 'Delivered') {
+        timeline.push({
+          status: 'Delivered',
+          date: new Date().toISOString(),
+          message: 'Items collected in-store by walk-in client.'
+        });
+      } else if (paymentMethod !== 'M-Pesa' || determinedStatus === 'Paid') {
+        timeline.push({
+          status: 'Paid',
+          date: new Date().toISOString(),
+          message: 'Transaction successfully processed.'
+        });
+      }
 
       // Build Order Entity
       const order = new Order();
@@ -143,27 +161,18 @@ export class OrderService {
       order.county = county || 'Nairobi';
       order.shippingFee = parsedShippingFee;
       order.subtotal = subtotal;
-      order.discountAmount = discountAmount;
+      order.discountAmount = appliedDiscount;
       order.totalAmount = totalAmount;
       order.couponApplied = couponAppliedText;
-      order.status = (paymentMethod === 'M-Pesa' || paymentMethod === 'WhatsApp') ? 'Pending Payment' : 'Paid';
+      order.status = determinedStatus;
       order.paymentMethod = paymentMethod;
+      order.salesChannel = isWalkIn ? 'walk_in' : (createDto.salesChannel || 'online');
+      if (createDto.mpesaReference) {
+        order.mpesaReference = createDto.mpesaReference;
+      }
       order.date = new Date().toISOString();
       order.timelineJson = JSON.stringify(timeline);
       order.items = orderItems;
-
-      if (paymentMethod !== 'M-Pesa') {
-        // Card or bank transfer payments are pre-approved/pre-paid
-        const updatedTimeline = [
-          ...timeline,
-          {
-            status: 'Paid',
-            date: new Date().toISOString(),
-            message: 'Transaction successfully processed.'
-          }
-        ];
-        order.timelineJson = JSON.stringify(updatedTimeline);
-      }
 
       const savedOrder = await entityManager.save(Order, order);
 
