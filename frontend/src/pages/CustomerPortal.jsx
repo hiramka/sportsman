@@ -1,5 +1,5 @@
 import React, { useState, useContext, useMemo } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import SEOHead from '../components/SEOHead';
@@ -199,6 +199,8 @@ export default function CustomerPortal() {
   const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [isSupportOpen, setIsSupportOpen] = useState(false);
+  const [thankYouOrder, setThankYouOrder] = useState(null);
+  const [checkoutErrors, setCheckoutErrors] = useState({});
 
   // Support ticket form state
   const [supportForm, setSupportForm] = useState({
@@ -427,10 +429,17 @@ export default function CustomerPortal() {
   // Handle Place Order
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
-    if (!customerInfo.name || !customerInfo.email || !customerInfo.phone || !customerInfo.address) {
-      alert('Please fill out all billing & delivery details.');
+    const errors = {};
+    if (!customerInfo.name?.trim()) errors.name = 'Full name is required';
+    if (!customerInfo.email?.trim() || !customerInfo.email.includes('@')) errors.email = 'Valid email is required';
+    if (!customerInfo.phone?.trim()) errors.phone = 'M-Pesa / Phone number is required';
+    if (!customerInfo.address?.trim()) errors.address = 'Physical delivery address is required';
+
+    if (Object.keys(errors).length > 0) {
+      setCheckoutErrors(errors);
       return;
     }
+    setCheckoutErrors({});
 
     if (paymentMethod === 'M-Pesa') {
       alert('M-Pesa payments are currently under development. Please use WhatsApp checkout.');
@@ -471,6 +480,7 @@ export default function CustomerPortal() {
     }
 
     setIsCheckoutOpen(false);
+    setThankYouOrder(order);
 
     if (paymentMethod === 'WhatsApp') {
       clearCart();
@@ -1543,22 +1553,84 @@ export default function CustomerPortal() {
         </section>
       )}
 
+      {/* --- STICKY MOBILE CTA BAR (Above the fold for mobile users) --- */}
+      {showActiveTab === 'shop' && cart.length > 0 && !isCartOpen && !isCheckoutOpen && !thankYouOrder && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0D1321]/95 backdrop-blur-lg border-t border-slate-800 p-3 px-4 shadow-2xl flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="relative">
+              <div className="w-9 h-9 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-500 flex items-center justify-center font-black">
+                <ShoppingBag className="w-4 h-4" />
+              </div>
+              <span className="absolute -top-1.5 -right-1.5 bg-orange-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-black">
+                {cart.reduce((s, i) => s + i.quantity, 0)}
+              </span>
+            </div>
+            <div className="text-left">
+              <span className="text-[10px] text-slate-400 uppercase font-bold block">Cart Total</span>
+              <span className="text-xs font-black text-white">KES {cartTotal.toLocaleString()}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsCartOpen(true)}
+              className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 font-bold text-xs cursor-pointer"
+            >
+              View Cart
+            </button>
+            <button
+              onClick={() => setIsCheckoutOpen(true)}
+              className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-orange-500/20 cursor-pointer"
+            >
+              <span>Checkout</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* FOOTER */}
-      <footer className="bg-[#05070B] border-t border-slate-900/80 py-8 px-4 md:px-8 text-center text-slate-500 text-xs">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-1.5">
-            <span className="text-orange-500 font-bold text-sm">🔥 Sportsman.ke</span>
-            <span className="text-slate-700">|</span>
-            <span>Nairobi’s #1 Sports Hub</span>
+      <footer className="bg-[#05070B] border-t border-slate-900/80 py-10 px-4 md:px-8 text-slate-500 text-xs">
+        <div className="max-w-6xl mx-auto space-y-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 pb-6 border-b border-slate-900">
+            <div className="flex items-center gap-2">
+              <span className="text-orange-500 font-extrabold text-base tracking-tight">🔥 Sportsman.ke</span>
+              <span className="text-slate-700">|</span>
+              <span className="text-slate-300 font-semibold">Nairobi's #1 Athletic Gear Hub</span>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-6 text-xs">
+              <Link to="/terms" className="hover:text-slate-300 cursor-pointer font-bold transition-colors">Terms of Service</Link>
+              <Link to="/privacy" className="hover:text-slate-300 cursor-pointer font-bold transition-colors">Privacy Policy</Link>
+              <button onClick={() => setIsSupportOpen(true)} className="hover:text-slate-300 cursor-pointer font-bold bg-transparent border-none">Customer Support</button>
+            </div>
           </div>
-          <div className="flex gap-6">
-            <button onClick={() => setIsTermsOpen(true)} className="hover:text-slate-300 cursor-pointer font-bold bg-transparent border-none">Terms of Service</button>
-            <button onClick={() => setIsPrivacyOpen(true)} className="hover:text-slate-300 cursor-pointer font-bold bg-transparent border-none">Privacy Policy</button>
-            <button onClick={() => setIsSupportOpen(true)} className="hover:text-slate-300 cursor-pointer font-bold bg-transparent border-none">Customer Support</button>
+
+          {/* Real Physical Contact Address & Dispatch Hub */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center sm:text-left text-slate-400 py-2">
+            <div className="flex items-start gap-2 justify-center sm:justify-start">
+              <MapPin className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold text-slate-200 block">Physical Store &amp; Dispatch</span>
+                <span>Sportsman Hub, Kimathi Street, CBD, Nairobi, Kenya</span>
+              </div>
+            </div>
+            <div className="flex items-start gap-2 justify-center sm:justify-start">
+              <Phone className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold text-slate-200 block">Direct Telephone &amp; WhatsApp</span>
+                <a href="https://wa.me/254759238018" className="hover:text-orange-400 transition-colors">+254 759 238 018</a>
+              </div>
+            </div>
+            <div className="flex items-start gap-2 justify-center sm:justify-start">
+              <Clock className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold text-slate-200 block">Store Hours &amp; Delivery</span>
+                <span>Mon – Sat: 8:00 AM – 7:00 PM • Same-day Nairobi Delivery</span>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 text-slate-400 text-xs">
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-500 pt-4 border-t border-slate-900/60 text-center sm:text-left">
             <span>&copy; {new Date().getFullYear()} Sportsman.ke. All Rights Reserved.</span>
-            <span className="hidden sm:inline text-slate-700">&bull;</span>
             <span className="inline-flex items-center gap-1 text-slate-400">
               Designed, Engineered &amp; Copyrighted by{' '}
               <a
@@ -2083,7 +2155,10 @@ export default function CustomerPortal() {
               <form onSubmit={handlePlaceOrder} className="space-y-4">
                 {/* Full name input */}
                 <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">Customer Name</label>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-[10px] font-black uppercase text-slate-400">Customer Name</label>
+                    {checkoutErrors.name && <span className="text-[10px] font-bold text-red-400">{checkoutErrors.name}</span>}
+                  </div>
                   <div className="relative">
                     <User className="w-3.5 h-3.5 text-slate-600 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
@@ -2091,8 +2166,11 @@ export default function CustomerPortal() {
                       required
                       placeholder="e.g. Kipchoge Keino"
                       value={customerInfo.name}
-                      onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-800 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white"
+                      onChange={(e) => {
+                        setCustomerInfo({ ...customerInfo, name: e.target.value });
+                        if (checkoutErrors.name) setCheckoutErrors({ ...checkoutErrors, name: null });
+                      }}
+                      className={`w-full bg-slate-900 border ${checkoutErrors.name ? 'border-red-500' : 'border-slate-800'} focus:border-orange-500 focus:ring-1 focus:ring-orange-500 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white`}
                     />
                   </div>
                 </div>
@@ -2100,7 +2178,10 @@ export default function CustomerPortal() {
                 {/* Email and Phone */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">Email Address</label>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label className="text-[10px] font-black uppercase text-slate-400">Email Address</label>
+                      {checkoutErrors.email && <span className="text-[10px] font-bold text-red-400">Invalid</span>}
+                    </div>
                     <div className="relative">
                       <Mail className="w-3.5 h-3.5 text-slate-600 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
@@ -2108,13 +2189,19 @@ export default function CustomerPortal() {
                         required
                         placeholder="kipi@runner.com"
                         value={customerInfo.email}
-                        onChange={(e) => setCustomerInfo({ ...customerInfo, email: e.target.value })}
-                        className="w-full bg-slate-900 border border-slate-800 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white"
+                        onChange={(e) => {
+                          setCustomerInfo({ ...customerInfo, email: e.target.value });
+                          if (checkoutErrors.email) setCheckoutErrors({ ...checkoutErrors, email: null });
+                        }}
+                        className={`w-full bg-slate-900 border ${checkoutErrors.email ? 'border-red-500' : 'border-slate-800'} focus:border-orange-500 focus:ring-1 focus:ring-orange-500 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white`}
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">M-Pesa Mobile Number</label>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label className="text-[10px] font-black uppercase text-slate-400">M-Pesa Mobile Number</label>
+                      {checkoutErrors.phone && <span className="text-[10px] font-bold text-red-400">Required</span>}
+                    </div>
                     <div className="relative">
                       <Phone className="w-3.5 h-3.5 text-slate-600 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
@@ -2122,8 +2209,11 @@ export default function CustomerPortal() {
                         required
                         placeholder="e.g. 0712345678"
                         value={customerInfo.phone}
-                        onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
-                        className="w-full bg-slate-900 border border-slate-800 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white"
+                        onChange={(e) => {
+                          setCustomerInfo({ ...customerInfo, phone: e.target.value });
+                          if (checkoutErrors.phone) setCheckoutErrors({ ...checkoutErrors, phone: null });
+                        }}
+                        className={`w-full bg-slate-900 border ${checkoutErrors.phone ? 'border-red-500' : 'border-slate-800'} focus:border-orange-500 focus:ring-1 focus:ring-orange-500 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white`}
                       />
                     </div>
                   </div>
@@ -2178,14 +2268,20 @@ export default function CustomerPortal() {
 
                 {/* Shipping address details */}
                 <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">Delivery Physical Address</label>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-[10px] font-black uppercase text-slate-400">Delivery Physical Address</label>
+                    {checkoutErrors.address && <span className="text-[10px] font-bold text-red-400">{checkoutErrors.address}</span>}
+                  </div>
                   <textarea
                     required
                     rows="2"
                     placeholder="Street, Building, Apartment, Gate Number..."
                     value={customerInfo.address}
-                    onChange={(e) => setCustomerInfo({ ...customerInfo, address: e.target.value })}
-                    className="w-full bg-slate-900 border border-slate-800 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 rounded-xl px-3.5 py-2.5 text-xs text-white"
+                    onChange={(e) => {
+                      setCustomerInfo({ ...customerInfo, address: e.target.value });
+                      if (checkoutErrors.address) setCheckoutErrors({ ...checkoutErrors, address: null });
+                    }}
+                    className={`w-full bg-slate-900 border ${checkoutErrors.address ? 'border-red-500' : 'border-slate-800'} focus:border-orange-500 focus:ring-1 focus:ring-orange-500 rounded-xl px-3.5 py-2.5 text-xs text-white`}
                   ></textarea>
                 </div>
 
@@ -2266,6 +2362,85 @@ export default function CustomerPortal() {
                   </div>
                 )}
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- THANK YOU / ORDER CONFIRMATION MODAL --- */}
+      {thankYouOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in text-left">
+          <div className="w-full max-w-lg bg-[#0D1321] border border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative p-6 md:p-8">
+            <button
+              onClick={() => setThankYouOrder(null)}
+              className="absolute top-4 right-4 bg-slate-950/70 border border-slate-800 p-2 rounded-full text-slate-400 hover:text-white transition-all cursor-pointer z-10"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-4">
+                <Check className="w-8 h-8" />
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 mb-2 inline-block">
+                Order Confirmed
+              </span>
+              <h2 className="text-2xl font-black text-white uppercase tracking-tight">
+                Thank You, {thankYouOrder.customerName || 'Athlete'}!
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Your sports gear order has been logged and queued for express Nairobi dispatch.
+              </p>
+            </div>
+
+            <div className="bg-slate-950/60 border border-slate-850 rounded-2xl p-4 mb-6 space-y-2 text-xs">
+              <div className="flex justify-between border-b border-slate-850 pb-2">
+                <span className="text-slate-400">Order Reference:</span>
+                <span className="font-mono font-bold text-orange-400">{thankYouOrder.id}</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-850 pb-2">
+                <span className="text-slate-400">Delivery Sub-County:</span>
+                <span className="font-bold text-white">{thankYouOrder.subCounty || thankYouOrder.county || 'Nairobi'}</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-850 pb-2">
+                <span className="text-slate-400">Estimated Delivery:</span>
+                <span className="font-bold text-emerald-400">2 Hours (Same-Day Express)</span>
+              </div>
+              <div className="flex justify-between pt-1">
+                <span className="text-slate-400">Total Amount:</span>
+                <span className="font-black text-orange-500 text-sm">KES {Number(thankYouOrder.totalAmount || 0).toLocaleString()}</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2.5">
+              <a
+                href={`https://wa.me/254759238018?text=Hello%20Sportsman.ke%2C%20following%20up%20on%20my%20Order%20Ref%3A%20${thankYouOrder.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-400 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all"
+              >
+                <span>Chat with Nairobi Dispatch on WhatsApp</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </a>
+
+              <button
+                onClick={() => {
+                  const oId = thankYouOrder.id;
+                  setThankYouOrder(null);
+                  setActiveTrackingOrder(oId);
+                  navigate('/tracker');
+                }}
+                className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white py-3 rounded-xl font-bold text-xs uppercase tracking-wider shadow-lg shadow-orange-500/20 transition-all cursor-pointer"
+              >
+                Track Live Delivery Status
+              </button>
+
+              <button
+                onClick={() => setThankYouOrder(null)}
+                className="w-full py-2.5 text-slate-400 hover:text-white text-xs font-bold transition-colors cursor-pointer"
+              >
+                Continue Shopping
+              </button>
             </div>
           </div>
         </div>

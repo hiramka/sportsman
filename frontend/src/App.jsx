@@ -6,6 +6,7 @@ import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import NotificationsCenter from './components/NotificationsCenter';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
+import CookieConsentBanner from './components/CookieConsentBanner';
 import CustomerPortal from './pages/CustomerPortal';
 import { Loader } from 'lucide-react';
 
@@ -15,6 +16,9 @@ const WarehousePortal = lazy(() => import('./pages/WarehousePortal'));
 const DeliveryPortal = lazy(() => import('./pages/DeliveryPortal'));
 const Login = lazy(() => import('./pages/Login'));
 const Forbidden = lazy(() => import('./pages/Forbidden'));
+const NotFound = lazy(() => import('./pages/NotFound'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const TermsConditions = lazy(() => import('./pages/TermsConditions'));
 
 function PageFallback() {
   return (
@@ -38,6 +42,8 @@ function AppContent() {
             {/* Public Routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/403" element={<Forbidden />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsConditions />} />
 
             {/* Storefront & Customer Routes (Loaded instantly) */}
             <Route path="/" element={<CustomerPortal />} />
@@ -66,8 +72,8 @@ function AppContent() {
               </ProtectedRoute>
             } />
 
-            {/* Redirect unregistered URLs to Home */}
-            <Route path="*" element={<Navigate to="/" replace />} />
+            {/* Custom 404 Catch-All Route */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
       </main>
@@ -77,6 +83,9 @@ function AppContent() {
 
       {/* Lightweight PWA & iOS Home Screen Install Prompt */}
       <PWAInstallPrompt />
+
+      {/* Cookie & Privacy Consent Banner */}
+      <CookieConsentBanner />
     </div>
   );
 }
