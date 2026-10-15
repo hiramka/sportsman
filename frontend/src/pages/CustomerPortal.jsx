@@ -30,7 +30,8 @@ import {
   Building,
   Download,
   RefreshCw,
-  Heart
+  Heart,
+  XCircle
 } from 'lucide-react';
 
 const KENYA_COUNTY_TIERS = [
@@ -130,6 +131,7 @@ export default function CustomerPortal() {
     payOrder,
     triggerMpesaPush,
     requestSizeExchange,
+    cancelCustomerOrder,
     activeCoupon,
     applyCoupon,
     API_BASE,
@@ -170,6 +172,12 @@ export default function CustomerPortal() {
   const [exchangeReason, setExchangeReason] = useState('Too small / tight fit');
   const [exchangeNotes, setExchangeNotes] = useState('');
   const [exchangeSubmitting, setExchangeSubmitting] = useState(false);
+
+  // Order Cancellation Modal state
+  const [cancellingOrder, setCancellingOrder] = useState(null);
+  const [cancelReason, setCancelReason] = useState('Changed my mind');
+  const [cancelCustomReason, setCancelCustomReason] = useState('');
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
 
   // Dynamic Shipping Tier Selection
   const [selectedCounty, setSelectedCounty] = useState('Nairobi');
@@ -562,6 +570,22 @@ export default function CustomerPortal() {
       alert(err.message || 'Failed to submit size exchange request.');
     } finally {
       setExchangeSubmitting(false);
+    }
+  };
+
+  // Submit Order Cancellation
+  const handleConfirmCancel = async (e) => {
+    e.preventDefault();
+    if (!cancellingOrder) return;
+    try {
+      setCancelSubmitting(true);
+      const finalReason = cancelReason === 'Other' ? (cancelCustomReason.trim() || 'Other reason') : cancelReason;
+      await cancelCustomerOrder(cancellingOrder.id, finalReason);
+      setCancellingOrder(null);
+    } catch (err) {
+      console.error('Cancellation error:', err);
+    } finally {
+      setCancelSubmitting(false);
     }
   };
 
@@ -1181,6 +1205,19 @@ export default function CustomerPortal() {
                               Pay Now via M-Pesa
                             </button>
                           )}
+                          {(selectedOrder.status === 'Pending Payment' || selectedOrder.status === 'Ordered') && (
+                            <button
+                              onClick={() => {
+                                setCancelReason('Changed my mind');
+                                setCancelCustomReason('');
+                                setCancellingOrder(selectedOrder);
+                              }}
+                              className="bg-red-500/10 hover:bg-red-500 hover:text-white border border-red-500/25 text-red-400 font-extrabold text-xs px-3.5 py-2 rounded-xl transition-all duration-200 cursor-pointer shadow-md flex items-center gap-1.5"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              <span>Cancel Order</span>
+                            </button>
+                          )}
                           {selectedOrder.status !== 'Pending Payment' && selectedOrder.status !== 'Cancelled' && currentUser?.role === 'admin' && (
                             <button
                               onClick={() => printReceipt(selectedOrder)}
@@ -1400,6 +1437,20 @@ export default function CustomerPortal() {
                           >
                             <RefreshCw className="w-3.5 h-3.5" />
                             <span>Request Size Exchange</span>
+                          </button>
+                        )}
+
+                        {(order.status === 'Pending Payment' || order.status === 'Ordered') && (
+                          <button
+                            onClick={() => {
+                              setCancelReason('Changed my mind');
+                              setCancelCustomReason('');
+                              setCancellingOrder(order);
+                            }}
+                            className="bg-red-500/10 hover:bg-red-500 hover:text-white border border-red-500/25 text-red-400 font-extrabold text-xs px-3.5 py-2 rounded-xl transition-all duration-200 cursor-pointer shadow-md flex items-center gap-1.5"
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            <span>Cancel Order</span>
                           </button>
                         )}
 
@@ -2946,6 +2997,106 @@ export default function CustomerPortal() {
                 <span>{exchangeSubmitting ? 'Submitting Ticket...' : 'Submit Exchange Ticket to Warehouse'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOMER ORDER CANCELLATION MODAL */}
+      {cancellingOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md bg-[#0D1321] border border-red-500/30 rounded-3xl p-6 md:p-8 text-left shadow-2xl relative space-y-5">
+            <button
+              onClick={() => setCancellingOrder(null)}
+              disabled={cancelSubmitting}
+              className="absolute top-4 right-4 bg-slate-950/70 border border-slate-850 p-2 rounded-full text-slate-400 hover:text-white transition-all cursor-pointer z-10"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-2.5 pb-2 border-b border-slate-900">
+              <div className="w-9 h-9 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400">
+                <XCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-white uppercase tracking-tight m-0">Cancel Order</h3>
+                <span className="text-[10px] text-slate-400">Order Ref: {cancellingOrder.id}</span>
+              </div>
+            </div>
+
+            <div className="bg-slate-950/60 border border-slate-850 rounded-2xl p-4 text-xs space-y-2">
+              <div className="flex justify-between text-slate-400">
+                <span>Items:</span>
+                <span className="font-bold text-white">{(cancellingOrder.items || []).length} items</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Total Amount:</span>
+                <span className="font-black text-orange-500">KES {Number(cancellingOrder.totalAmount || 0).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Current Status:</span>
+                <span className="font-bold text-amber-400">{cancellingOrder.status}</span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-2 pt-2 border-t border-slate-850/80 leading-relaxed">
+                Cancelling will release your reserved items back into available stock. If payment was completed, our dispatch support will contact you within 24 hours.
+              </p>
+            </div>
+
+            <form onSubmit={handleConfirmCancel} className="space-y-4 text-xs">
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">Reason for Cancellation</label>
+                <select
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 text-white rounded-xl p-2.5 text-xs focus:border-red-500 focus:outline-none cursor-pointer"
+                >
+                  <option value="Changed my mind">Changed my mind</option>
+                  <option value="Ordered wrong size or product">Ordered wrong size or product</option>
+                  <option value="Need delivery at a later date">Need delivery at a later date</option>
+                  <option value="Found alternative product">Found alternative product</option>
+                  <option value="Entered incorrect delivery address / phone">Entered incorrect delivery address / phone</option>
+                  <option value="Other">Other (specify below)</option>
+                </select>
+              </div>
+
+              {cancelReason === 'Other' && (
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">Specify Reason</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Tell us why you are cancelling..."
+                    value={cancelCustomReason}
+                    onChange={(e) => setCancelCustomReason(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 text-white rounded-xl p-2.5 text-xs focus:border-red-500 focus:outline-none"
+                  />
+                </div>
+              )}
+
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  disabled={cancelSubmitting}
+                  onClick={() => setCancellingOrder(null)}
+                  className="flex-1 py-2.5 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                >
+                  Keep Order
+                </button>
+                <button
+                  type="submit"
+                  disabled={cancelSubmitting}
+                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-lg shadow-red-600/20 flex items-center justify-center gap-1.5"
+                >
+                  {cancelSubmitting ? (
+                    <>
+                      <Loader className="w-3.5 h-3.5 animate-spin" />
+                      <span>Cancelling...</span>
+                    </>
+                  ) : (
+                    <span>Confirm Cancellation</span>
+                  )}
+                </button>
+              </div>
             </form>
           </div>
         </div>

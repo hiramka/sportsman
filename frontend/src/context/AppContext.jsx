@@ -1050,6 +1050,56 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  // Customer cancels eligible order (Pending Payment or Ordered)
+  const cancelCustomerOrder = async (orderId, reason = 'Cancelled by customer') => {
+    try {
+      const order = orders.find(o => o.id === orderId);
+      const headers = { 'Content-Type': 'application/json', ...getAuthHeaders() };
+      const payload = {
+        reason,
+        email: order?.email,
+        phone: order?.phone,
+      };
+
+      const res = await fetch(`${API_BASE}/orders/${orderId}/cancel`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        credentials: 'include'
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || 'Failed to cancel order.');
+      }
+
+      const updated = await res.json();
+      const parsed = {
+        ...updated,
+        county: updated.county || 'Nairobi',
+        shippingFee: Number(updated.shippingFee || 0),
+        exchangeRequestJson: updated.exchangeRequestJson || null,
+        timeline: JSON.parse(updated.timelineJson || '[]'),
+        items: (updated.items || []).map(item => ({
+          product: item.product,
+          quantity: item.quantity,
+          selectedSize: item.selectedSize || 'Standard'
+        }))
+      };
+
+      setOrders(prev =>
+        prev.map(o => (o.id === orderId ? parsed : o))
+      );
+
+      addNotification('info', `Order ${orderId} has been successfully cancelled.`);
+      await fetchProducts(); // Refresh catalog to reflect restored stock immediately
+      return parsed;
+    } catch (err) {
+      addNotification('error', err.message || 'Failed to cancel order.');
+      throw err;
+    }
+  };
+
   // User CRUD (Admin gated)
   const fetchUsers = async () => {
     try {
@@ -1346,6 +1396,7 @@ export const AppProvider = ({ children }) => {
         payOrder,
         triggerMpesaPush,
         updateOrderStatus,
+        cancelCustomerOrder,
         requestSizeExchange,
         updateExchangeStatus,
         coupons,
