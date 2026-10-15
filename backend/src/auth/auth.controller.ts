@@ -20,8 +20,8 @@ export class AuthController {
       response.cookie('sm_token', (result as any).token, {
         httpOnly: true,
         secure: isProd,
-        sameSite: isProd ? 'none' : 'lax',
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        sameSite: isProd ? 'strict' : 'lax',
+        maxAge: 30 * 60 * 1000, // 30 minutes session inactivity expiration
         path: '/'
       });
     }
@@ -71,8 +71,8 @@ export class AuthController {
     response.cookie('sm_token', result.token, {
       httpOnly: true,
       secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      sameSite: isProd ? 'strict' : 'lax',
+      maxAge: 30 * 60 * 1000, // 30 minutes session inactivity expiration
       path: '/'
     });
 
@@ -135,7 +135,7 @@ export class AuthController {
     response.clearCookie('sm_token', {
       httpOnly: true,
       secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
+      sameSite: isProd ? 'strict' : 'lax',
       path: '/'
     });
     return { success: true, message: 'Logged out successfully.' };

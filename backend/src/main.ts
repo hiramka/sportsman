@@ -16,14 +16,31 @@ async function bootstrap() {
   // Enable graceful shutdown hooks for container lifecycle SIGTERM/SIGINT signals
   app.enableShutdownHooks();
 
+  // Trust reverse proxy (e.g. Render, Cloudflare, Vercel)
+  app.set('trust proxy', 1);
+
+  // HTTPS enforcement: redirect plain HTTP requests to HTTPS in production
+  app.use((req: any, res: any, next: any) => {
+    const isProd = process.env.NODE_ENV === 'production';
+    if (isProd && req.headers['x-forwarded-proto'] && req.headers['x-forwarded-proto'] !== 'https') {
+      return res.redirect(301, `https://${req.hostname}${req.originalUrl}`);
+    }
+    next();
+  });
+
   // Serve static assets (such as uploaded product images)
   app.useStaticAssets(join(__dirname, '..', 'public'), {
     prefix: '/public/',
   });
 
-  // Use Helmet for secure HTTP headers
+  // Use Helmet for secure HTTP headers & Strict-Transport-Security (HSTS)
   app.use(helmet({
-    crossOriginResourcePolicy: { policy: 'cross-origin' }
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    hsts: {
+      maxAge: 31536000, // 1 year HSTS policy
+      includeSubDomains: true,
+      preload: true
+    }
   }));
 
   // Enable global validation piping

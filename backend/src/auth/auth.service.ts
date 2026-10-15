@@ -65,7 +65,13 @@ export class AuthService {
   async login(loginDto: any) {
     const { email, password } = loginDto;
 
-    const user = await this.userRepository.findOne({ where: { email } });
+    const cleanEmail = email ? email.toLowerCase().trim() : '';
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('LOWER(user.email) = :email', { email: cleanEmail })
+      .getOne();
+
     if (!user) {
       throw new UnauthorizedException('Invalid login credentials.');
     }
@@ -101,7 +107,12 @@ export class AuthService {
       throw new BadRequestException('Verification token is missing.');
     }
 
-    const user = await this.userRepository.findOne({ where: { verificationToken: token } });
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.verificationToken')
+      .where('user.verificationToken = :token', { token: token.trim() })
+      .getOne();
+
     if (!user) {
       throw new BadRequestException('Invalid or expired verification token.');
     }
@@ -113,11 +124,7 @@ export class AuthService {
   }
 
   async findAllUsers() {
-    const users = await this.userRepository.find();
-    return users.map(user => {
-      const { passwordHash, ...safeUser } = user;
-      return safeUser;
-    });
+    return this.userRepository.find();
   }
 
   async createUser(createUserDto: any) {
@@ -181,7 +188,16 @@ export class AuthService {
   }
 
   private generateToken(user: User): string {
-    const payload = { sub: user.id, email: user.email, role: user.role, phone: user.phone, name: user.name };
+    const sessionId = crypto.randomUUID(); // Brand-new unique session ID issued on every login
+    const payload = {
+      sub: user.id,
+      sessionId,
+      email: user.email,
+      role: user.role,
+      phone: user.phone,
+      name: user.name,
+      iat: Math.floor(Date.now() / 1000)
+    };
     return this.jwtService.sign(payload);
   }
 
@@ -195,7 +211,7 @@ export class AuthService {
       return { success: true, message: 'If an account exists with that email, a password reset link has been dispatched.' };
     }
 
-    const resetToken = Math.random().toString(36).substring(2, 8).toUpperCase() + '-' + Date.now().toString(36).toUpperCase();
+    const resetToken = crypto.randomBytes(32).toString('hex');
     const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour expiry
 
     user.resetPasswordToken = resetToken;
@@ -206,8 +222,7 @@ export class AuthService {
 
     return {
       success: true,
-      message: 'Password reset link sent to your email address.',
-      resetToken, // Returned for instant testing/fallback
+      message: 'Password reset link sent to your email address.'
     };
   }
 
@@ -221,9 +236,14 @@ export class AuthService {
     }
 
     const cleanToken = token.trim();
-    const user = await this.userRepository.findOne({
-      where: email ? { email: email.toLowerCase().trim(), resetPasswordToken: cleanToken } : { resetPasswordToken: cleanToken }
-    });
+    const qb = this.userRepository
+      .createQueryBuilder('user')
+      .addSelect(['user.passwordHash', 'user.resetPasswordToken', 'user.resetPasswordExpires'])
+      .where('user.resetPasswordToken = :token', { token: cleanToken });
+    if (email) {
+      qb.andWhere('LOWER(user.email) = :email', { email: email.toLowerCase().trim() });
+    }
+    const user = await qb.getOne();
 
     if (!user) {
       throw new BadRequestException('Invalid or expired password reset token.');

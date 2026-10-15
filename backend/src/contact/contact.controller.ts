@@ -1,5 +1,7 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
 import { ContactService } from './contact.service';
+import { AuthGuard } from '../auth/auth.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('contact')
 export class ContactController {
@@ -19,16 +21,22 @@ export class ContactController {
   }
 
   @Get()
+  @UseGuards(AuthGuard)
+  @Roles('admin')
   async findAll() {
     return await this.contactService.findAll();
   }
 
   @Patch(':id/status')
+  @UseGuards(AuthGuard)
+  @Roles('admin')
   async updateStatus(@Param('id') id: string, @Body('status') status: string) {
     return await this.contactService.updateStatus(id, status);
   }
 
   @Delete(':id')
+  @UseGuards(AuthGuard)
+  @Roles('admin')
   async remove(@Param('id') id: string) {
     await this.contactService.remove(id);
     return { success: true, message: 'Message deleted' };

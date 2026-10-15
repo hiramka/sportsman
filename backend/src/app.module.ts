@@ -141,6 +141,16 @@ export class AppModule implements OnModuleInit {
         await this.entityManager.query(`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS "selectedSize" character varying DEFAULT 'Standard'`);
         await this.entityManager.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS "resetPasswordToken" character varying`);
         await this.entityManager.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS "resetPasswordExpires" character varying`);
+
+        // Automatically activate Row Level Security (RLS) on all Supabase tables
+        const rlsTables = ['users', 'orders', 'order_items', 'products', 'coupons', 'reviews', 'contact_messages'];
+        for (const tbl of rlsTables) {
+          try {
+            await this.entityManager.query(`ALTER TABLE IF EXISTS "${tbl}" ENABLE ROW LEVEL SECURITY`);
+          } catch (e: any) {
+            console.warn(`RLS activation skipped for ${tbl}:`, e?.message);
+          }
+        }
       }
       await this.entityManager.createQueryBuilder()
         .update(User)

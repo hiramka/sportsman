@@ -16,7 +16,7 @@ export class User {
   @Index()
   phone: string;
 
-  @Column()
+  @Column({ select: false })
   passwordHash: string;
 
   @Column({ default: 'customer' })
@@ -25,13 +25,13 @@ export class User {
   @Column({ default: false })
   isVerified: boolean;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, select: false })
   verificationToken: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, select: false })
   resetPasswordToken: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, select: false })
   resetPasswordExpires: string;
 
   @Column({ nullable: true })
