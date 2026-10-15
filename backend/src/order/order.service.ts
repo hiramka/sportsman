@@ -59,6 +59,18 @@ export class OrderService {
     });
   }
 
+  async findByTrackingNumber(trackingNumber: string) {
+    const order = await this.orderRepository.findOne({
+      where: { trackingNumber },
+      relations: ['items'],
+    });
+    if (!order) {
+      throw new NotFoundException(`Order with tracking number ${trackingNumber} not found.`);
+    }
+    return order;
+  }
+
+
   // Transaction-backed order checkout with Pessimistic Row-Level Locking!
   async create(createDto: any) {
     const { userId, name, email, phone, address, subCounty, county, shippingFee, paymentMethod, cart, couponCode } = createDto;
