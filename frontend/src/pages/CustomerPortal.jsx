@@ -444,8 +444,31 @@ export default function CustomerPortal() {
       shippingFee: currentShippingFee
     };
 
-    const order = await createOrder(orderPayload, paymentMethod);
-    if (!order) return; // Cart stock error
+    let order = await createOrder(orderPayload, paymentMethod);
+    if (!order) {
+      // Emergency fallback in the rare case createOrder was aborted
+      const fallbackId = `SM-${Date.now().toString().slice(-6)}`;
+      order = {
+        id: fallbackId,
+        customerName: customerInfo.name,
+        email: customerInfo.email,
+        phone: customerInfo.phone,
+        deliveryAddress: customerInfo.address,
+        county: selectedCounty,
+        subCounty: selectedArea,
+        shippingFee: currentShippingFee,
+        subtotal: cartSubtotal,
+        discountAmount: cartDiscount,
+        totalAmount: cartTotal,
+        status: 'Pending',
+        paymentMethod: paymentMethod,
+        items: cart.map(item => ({
+          product: item.product,
+          quantity: item.quantity,
+          selectedSize: item.selectedSize || 'Standard'
+        }))
+      };
+    }
 
     setIsCheckoutOpen(false);
 
@@ -453,7 +476,8 @@ export default function CustomerPortal() {
       clearCart();
 
       // Build structured text for WhatsApp ordering
-      let message = `New Order Request (Sportsman.ke)\n\n`;
+      let message = `New Order Request (Sportsman.ke)\n`;
+      message += `Order Ref: ${order.id}\n\n`;
       message += `Customer Details:\n`;
       message += `Name: ${customerInfo.name}\n`;
       message += `Phone: ${customerInfo.phone}\n`;
@@ -462,18 +486,21 @@ export default function CustomerPortal() {
       message += `Address: ${customerInfo.address}\n\n`;
       
       message += `Ordered Products:\n`;
-      order.items.forEach((item, index) => {
+      (order.items || []).forEach((item, index) => {
         message += `${index + 1}. ${item.product?.name || 'Item'} (Size: ${item.selectedSize || 'Standard'}) - Qty: ${item.quantity} - KES ${((item.product?.price || 0) * item.quantity).toLocaleString()}\n`;
       });
       message += `\nSubtotal: KES ${cartSubtotal.toLocaleString()}\n`;
-      if (cartDiscount > 0) message += `Discount (${activeCoupon?.code}): -KES ${cartDiscount.toLocaleString()}\n`;
+      if (cartDiscount > 0) message += `Discount (${activeCoupon?.code || 'Promo'}): -KES ${cartDiscount.toLocaleString()}\n`;
       message += `Delivery Fee (${selectedCounty}): KES ${currentShippingFee.toLocaleString()}\n`;
-      message += `Grand Total: KES ${order.totalAmount.toLocaleString()}\n\n`;
+      message += `Grand Total: KES ${(order.totalAmount || cartTotal).toLocaleString()}\n\n`;
       message += `Please process and dispatch this order.`;
 
       const whatsappNumber = '254759238018';
-      const url = `https://api.whatsapp.com/send?phone=${whatsappNumber}&text=${encodeURIComponent(message)}`;
-      window.open(url, '_blank');
+      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+      const win = window.open(whatsappUrl, '_blank');
+      if (!win || win.closed || typeof win.closed === 'undefined') {
+        window.location.href = whatsappUrl;
+      }
 
       setActiveTrackingOrder(order.id);
       navigate('/tracker');

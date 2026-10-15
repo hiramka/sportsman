@@ -262,7 +262,7 @@ export class AppModule implements OnModuleInit {
         stockQuantity: 2,
         reorderThreshold: 2,
         brand: 'Donic',
-        imageUrl: 'https://images.unsplash.com/photo-1609710223199-14b36c6ca5d4?w=500&auto=format&fit=crop&q=60',
+        imageUrl: 'https://images.unsplash.com/photo-1534158914592-062992fbe900?w=500&auto=format&fit=crop&q=60',
         warehouseLocation: 'Zone D - Shelf 1',
         sizes: JSON.stringify(['Standard 9x5ft']),
       },
@@ -301,18 +301,22 @@ export class AppModule implements OnModuleInit {
         stockQuantity: 5,
         reorderThreshold: 3,
         brand: 'Sportsman',
-        imageUrl: 'https://images.unsplash.com/photo-1519766304817-4f37bda74a27?w=500&auto=format&fit=crop&q=60',
+        imageUrl: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=500&auto=format&fit=crop&q=60',
         warehouseLocation: 'Aisle B - Row 3',
         sizes: JSON.stringify(['Standard 12-Loop']),
       }
     ];
 
     for (const p of defaultProducts) {
-      const count = await this.entityManager.count(Product, { where: { id: p.id } });
-      if (count === 0) {
+      const existing = await this.entityManager.findOne(Product, { where: { id: p.id } });
+      if (!existing) {
         const newProduct = this.entityManager.create(Product, p);
         await this.entityManager.save(Product, newProduct);
         console.log(`✓ Seeded Product: ${p.name}`);
+      } else if (existing.imageUrl !== p.imageUrl) {
+        existing.imageUrl = p.imageUrl;
+        await this.entityManager.save(Product, existing);
+        console.log(`✓ Synchronized Product Image for: ${p.name}`);
       }
     }
 
